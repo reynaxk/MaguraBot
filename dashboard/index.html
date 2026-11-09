@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaguraBot — Solana Memecoin Sniper Terminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#050607',
+            panel: '#0B0F11',
+            panel2: '#0F1416',
+            border1: '#161D20',
+            border2: '#1F282C',
+            accent: '#2FE39A',
+            accentGlow: 'rgba(47, 227, 154, 0.25)',
+            danger: '#FF5F6D',
+            warn: '#F5C451',
+            blueCol: '#3BA7FF',
+            dim: '#8C9794',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #050607; color: #E8EDEC; }
+    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #0B0F11; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #1F282C; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #2FE39A; }
+    .pulse-glow { box-shadow: 0 0 15px rgba(47, 227, 154, 0.4); }
+  </style>
+</head>
+<body class="font-sans antialiased selection:bg-accent selection:text-black min-h-screen flex flex-col">
+
+  <!-- TOP HEADER -->
+  <header class="border-b border-border1 bg-panel/80 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-accent/10 border border-accent/40 flex items-center justify-center font-bold text-accent text-lg shadow-[0_0_12px_rgba(47,227,154,0.3)]">
+          M
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-base tracking-wide text-white">MAGURABOT</span>
+            <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/30 font-semibold" id="modeBadge">PAPER TRADING</span>
+          </div>
+          <p class="text-xs text-dim font-mono">Solana Memecoin Sniper • Pump.fun & Raydium</p>
+        </div>
+      </div>
+
+      <div class="hidden md:flex items-center gap-2 pl-4 border-l border-border1 font-mono text-xs">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent animate-pulse" id="wsIndicator"></span>
+        <span class="text-dim" id="wsStatus">LIVE WEBSOCKET</span>
+      </div>
+    </div>
+
+    <!-- Actions & Controls -->
+    <div class="flex items-center gap-3">
+      <!-- Quick Snipe Input -->
+      <div class="hidden lg:flex items-center bg-panel2 border border-border2 rounded-lg px-2.5 py-1">
+        <input id="quickMintInput" type="text" placeholder="Paste Solana token mint..." class="bg-transparent text-xs font-mono w-56 text-white focus:outline-none placeholder-dim" />
+        <button onclick="handleQuickSnipe()" class="bg-accent hover:bg-emerald-400 text-black font-semibold text-xs px-2.5 py-1 rounded transition">
+          Snipe
+        </button>
+      </div>
+
+      <!-- Mode Toggle -->
+      <button onclick="toggleMode()" id="modeToggleBtn" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-3 py-1.5 rounded-lg text-dim hover:text-white transition">
+        Switch Mode
+      </button>
+
+      <!-- Start / Pause Bot -->
+      <button onclick="toggleBotState()" id="botStateBtn" class="bg-accent/10 border border-accent/40 text-accent hover:bg-accent hover:text-black font-semibold text-xs px-3.5 py-1.5 rounded-lg transition">
+        Pause Bot
+      </button>
+
+      <!-- Emergency Exit -->
+      <button onclick="emergencySellAll()" class="bg-danger/10 hover:bg-danger hover:text-white border border-danger/40 text-danger text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+        Sell All
+      </button>
+    </div>
+  </header>
+
+  <!-- METRICS KPI STRIP -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-4 border-b border-border1 bg-panel/40">
+    <div class="bg-panel p-3.5 rounded-xl border border-border1">
+      <p class="text-xs font-mono text-dim">WALLET BALANCE</p>
+      <div class="flex items-baseline gap-2 mt-1">
+        <span class="text-xl font-bold font-mono text-white" id="statBalance">10.000 SOL</span>
+        <span class="text-xs text-dim font-mono" id="statBalanceUsd">≈ $1,800.00</span>
+      </div>
+    </div>
+
+    <div class="bg-panel p-3.5 rounded-xl border border-border1">
+      <p class="text-xs font-mono text-dim">TOTAL REALIZED PNL</p>
+      <div class="flex items-baseline gap-2 mt-1">
+        <span class="text-xl font-bold font-mono text-accent" id="statPnl">+0.000 SOL</span>
+        <span class="text-xs text-accent font-mono" id="statPnlUsd">(+$0.00)</span>
+      </div>
+    </div>
+
+    <div class="bg-panel p-3.5 rounded-xl border border-border1">
+      <p class="text-xs font-mono text-dim">WIN RATE & TRADES</p>
+      <div class="flex items-baseline gap-2 mt-1">
+        <span class="text-xl font-bold font-mono text-white" id="statWinRate">0.0%</span>
+        <span class="text-xs text-dim font-mono" id="statTradeCount">0 trades closed</span>
+      </div>
+    </div>
+
+    <div class="bg-panel p-3.5 rounded-xl border border-border1">
+      <p class="text-xs font-mono text-dim">ACTIVE POSITIONS</p>
+      <div class="flex items-baseline gap-2 mt-1">
+        <span class="text-xl font-bold font-mono text-blueCol" id="statActiveCount">0 / 5</span>
+        <span class="text-xs text-dim font-mono">Slots Available</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN BODY: RADAR + POSITIONS -->
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 p-6 overflow-hidden">
+
+    <!-- LEFT COLUMN: LIVE TOKEN RADAR (5 cols) -->
+    <div class="lg:col-span-5 flex flex-col bg-panel rounded-xl border border-border1 overflow-hidden">
+      <div class="px-4 py-3 border-b border-border1 flex items-center justify-between bg-panel2">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-accent animate-ping"></span>
+          <h2 class="text-sm font-bold tracking-wide uppercase">Live Token Radar</h2>
+        </div>
+        <span class="text-[11px] font-mono text-dim" id="radarCount">Monitoring</span>
+      </div>
+
+      <div class="p-3 flex-1 overflow-y-auto custom-scroll space-y-2.5 max-h-[580px]" id="radarList">
+        <div class="text-center py-16 text-dim font-mono text-xs">
+          Listening for new token events on Pump.fun and Raydium...
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: OPEN POSITIONS & RECENT TRADES (7 cols) -->
+    <div class="lg:col-span-7 flex flex-col space-y-5">
+      
+      <!-- Open Positions -->
+      <div class="bg-panel rounded-xl border border-border1 overflow-hidden flex-1 flex flex-col">
+        <div class="px-4 py-3 border-b border-border1 flex items-center justify-between bg-panel2">
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-bold tracking-wide uppercase">Open Positions</h2>
+            <span class="text-xs font-mono px-2 py-0.5 rounded bg-blueCol/10 text-blueCol border border-blueCol/20" id="openCountBadge">0</span>
+          </div>
+          <span class="text-xs text-dim font-mono">Auto TP / SL Monitored</span>
+        </div>
+
+        <div class="flex-1 overflow-y-auto custom-scroll max-h-[280px]">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="text-dim bg-panel/80 sticky top-0 border-b border-border1">
+              <tr>
+                <th class="py-2.5 px-4">TOKEN</th>
+                <th class="py-2.5 px-3">ENTRY</th>
+                <th class="py-2.5 px-3">CURRENT</th>
+                <th class="py-2.5 px-3">PNL</th>
+                <th class="py-2.5 px-4 text-right">ACTION</th>
+              </tr>
+            </thead>
+            <tbody id="positionsTableBody" class="divide-y divide-border1">
+              <tr>
+                <td colspan="5" class="py-12 text-center text-dim">
+                  No active open positions. Sniper is scanning for entry signals.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Closed Trades History -->
+      <div class="bg-panel rounded-xl border border-border1 overflow-hidden h-[260px] flex flex-col">
+        <div class="px-4 py-2.5 border-b border-border1 flex items-center justify-between bg-panel2">
+          <h2 class="text-sm font-bold tracking-wide uppercase">Completed Trades</h2>
+          <span class="text-xs text-dim font-mono" id="closedCount">0 Records</span>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scroll">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="text-dim bg-panel/80 sticky top-0 border-b border-border1">
+              <tr>
+                <th class="py-2 px-4">TOKEN</th>
+                <th class="py-2 px-3">INVESTED</th>
+                <th class="py-2 px-3">EXIT REASON</th>
+                <th class="py-2 px-3">NET PNL</th>
+                <th class="py-2 px-4 text-right">TIME</th>
+              </tr>
+            </thead>
+            <tbody id="tradesTableBody" class="divide-y divide-border1">
+              <tr>
+                <td colspan="5" class="py-8 text-center text-dim">No closed trades yet</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- BOTTOM TERMINAL LOGS -->
+  <footer class="border-t border-border1 bg-panel p-4 flex flex-col space-y-2">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded bg-accent"></span>
+        <span class="text-xs font-mono font-semibold text-white tracking-wider uppercase">Execution Logs</span>
+      </div>
+      <button onclick="clearLogs()" class="text-xs font-mono text-dim hover:text-white transition">Clear Logs</button>
+    </div>
+    <div class="h-28 bg-black/60 rounded-lg p-2.5 font-mono text-[11px] overflow-y-auto custom-scroll text-dim space-y-1" id="logTerminal">
+      <div>[INIT] MaguraBot connected. Starting event listeners...</div>
+    </div>
+  </footer>
+
+  <!-- JAVASCRIPT APP LOGIC -->
+  <script>
+    let ws;
+    let botRunning = true;
+    let botMode = "paper";
+    const recentTokens = [];
+    const openPositions = [];
+    const closedTrades = [];
+
+    function connectWebSocket() {
+      const loc = window.location;
+      const wsUrl = (loc.protocol === "https:" ? "wss://" : "ws://") + loc.host + "/ws";
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById("wsIndicator").className = "inline-block w-2.5 h-2.5 rounded-full bg-accent animate-pulse";
+        document.getElementById("wsStatus").innerText = "CONNECTED";
+        addLog("WebSocket connected to sniper engine.");
+      };
+
+      ws.onclose = () => {
+        document.getElementById("wsIndicator").className = "inline-block w-2.5 h-2.5 rounded-full bg-danger";
+        document.getElementById("wsStatus").innerText = "RECONNECTING...";
+        addLog("WebSocket disconnected. Reconnecting in 3s...", "danger");
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleBotMessage(msg);
+        } catch (e) {
+          console.error("Failed to parse WS msg", e);
+        }
+      };
+    }
+
+    function handleBotMessage(msg) {
+      if (msg.event === "snapshot") {
+        updateMetrics(msg.metrics);
+        renderPositions(msg.positions || []);
+        renderTrades(msg.trades || []);
+        if (msg.recent_tokens) {
+          msg.recent_tokens.forEach(addTokenCard);
+        }
+      } else if (msg.event === "token_discovered") {
+        addTokenCard(msg.data);
+      } else if (msg.event === "order_executed") {
+        addLog(`ORDER EXECUTED: ${msg.data.order_type} ${msg.data.symbol} (${msg.data.amount_sol} SOL)`, "accent");
+        fetchPositions();
+      } else if (msg.event === "position_updated") {
+        fetchPositions();
+      } else if (msg.event === "position_closed") {
+        addLog(`CLOSED: ${msg.message}`, "accent");
+        fetchPositions();
+        fetchTrades();
+        fetchStatus();
+      } else if (msg.event === "bot_state_changed") {
+        botRunning = msg.data.running;
+        botMode = msg.data.mode;
+        updateControls();
+        addLog(`Bot state: ${botRunning ? 'Running' : 'Paused'} (${botMode})`);
+      }
+    }
+
+    function addTokenCard(token) {
+      const radar = document.getElementById("radarList");
+      if (recentTokens.length === 0) radar.innerHTML = "";
+      recentTokens.unshift(token);
+      if (recentTokens.length > 50) recentTokens.pop();
+
+      const card = document.createElement("div");
+      card.className = "bg-panel2 p-3 rounded-lg border border-border1 hover:border-accent/40 transition flex items-center justify-between";
+      
+      const isSafe = token.safety ? token.safety.is_safe : true;
+      const score = token.safety ? token.safety.score : 80;
+      const scoreColor = score >= 70 ? 'text-accent bg-accent/10 border-accent/30' : (score >= 40 ? 'text-warn bg-warn/10 border-warn/30' : 'text-danger bg-danger/10 border-danger/30');
+
+      card.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-panel border border-border2 flex items-center justify-center font-bold text-xs uppercase font-mono text-white">
+            ${token.symbol.slice(0, 3)}
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-sm text-white">${token.symbol}</span>
+              <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${scoreColor}">${score}/100</span>
+              <span class="text-[10px] text-dim font-mono">${token.source}</span>
+            </div>
+            <div class="text-[11px] text-dim font-mono mt-0.5 truncate max-w-[200px]">
+              ${token.name} • ${token.mint.slice(0, 4)}...${token.mint.slice(-4)}
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          ${token.bonding_curve_pct ? `
+            <div class="text-right hidden sm:block">
+              <div class="text-[10px] text-dim font-mono">Curve</div>
+              <div class="text-xs font-mono font-semibold text-accent">${token.bonding_curve_pct.toFixed(0)}%</div>
+            </div>
+          ` : ''}
+          <button onclick="manualSnipe('${token.mint}', '${token.symbol}')" class="bg-panel hover:bg-accent hover:text-black border border-border2 hover:border-accent text-accent font-mono text-xs px-3 py-1.5 rounded-lg transition font-semibold">
+            Snipe
+          </button>
+        </div>
+      `;
+
+      radar.insertBefore(card, radar.firstChild);
+      document.getElementById("radarCount").innerText = `${recentTokens.length} Discovered`;
+    }
+
+    function renderPositions(positions) {
+      const tbody = document.getElementById("positionsTableBody");
+      document.getElementById("openCountBadge").innerText = positions.length;
+      document.getElementById("statActiveCount").innerText = `${positions.length} / 5`;
+
+      if (!positions || positions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-dim">No active open positions. Sniper is scanning for entry signals.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = positions.map(p => {
+        const pnlPositive = p.pnl_pct >= 0;
+        const pnlColor = pnlPositive ? 'text-accent' : 'text-danger';
+        const pnlSign = pnlPositive ? '+' : '';
+
+        return `
+          <tr class="hover:bg-panel2/50 transition">
+            <td class="py-3 px-4">
+              <div class="font-bold text-white">${p.symbol}</div>
+              <div class="text-[10px] text-dim">${p.token_mint.slice(0, 4)}...${p.token_mint.slice(-4)}</div>
+            </td>
+            <td class="py-3 px-3 text-dim">${p.buy_price_sol.toFixed(8)} SOL</td>
+            <td class="py-3 px-3 text-white font-semibold">${p.current_price_sol.toFixed(8)} SOL</td>
+            <td class="py-3 px-3">
+              <span class="${pnlColor} font-bold">${pnlSign}${p.pnl_pct.toFixed(1)}%</span>
+              <span class="text-[10px] text-dim block">${pnlSign}${p.pnl_sol.toFixed(4)} SOL</span>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <button onclick="marketSell('${p.id}')" class="bg-danger/10 hover:bg-danger hover:text-white border border-danger/30 text-danger text-xs px-2.5 py-1 rounded transition">
+                Sell
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderTrades(trades) {
+      const tbody = document.getElementById("tradesTableBody");
+      document.getElementById("closedCount").innerText = `${trades.length} Records`;
+
+      if (!trades || trades.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-dim">No closed trades yet</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = trades.map(t => {
+        const pnlPositive = t.pnl_pct >= 0;
+        const pnlColor = pnlPositive ? 'text-accent' : 'text-danger';
+        const pnlSign = pnlPositive ? '+' : '';
+
+        return `
+          <tr class="hover:bg-panel2/50 transition">
+            <td class="py-2.5 px-4 font-bold text-white">${t.symbol}</td>
+            <td class="py-2.5 px-3 text-dim">${t.sol_invested.toFixed(3)} SOL</td>
+            <td class="py-2.5 px-3 uppercase text-[11px] text-dim">${t.exit_reason || 'MANUAL'}</td>
+            <td class="py-2.5 px-3 font-bold ${pnlColor}">${pnlSign}${t.pnl_pct.toFixed(1)}% (${pnlSign}${t.pnl_sol.toFixed(4)} SOL)</td>
+            <td class="py-2.5 px-4 text-right text-dim text-[10px]">${new Date(t.closed_at * 1000).toLocaleTimeString()}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateMetrics(m) {
+      if (!m) return;
+      document.getElementById("statBalance").innerText = `${m.paper_balance_sol.toFixed(3)} SOL`;
+      document.getElementById("statBalanceUsd").innerText = `≈ $${(m.paper_balance_sol * m.sol_price_usd).toFixed(2)}`;
+      
+      const pnlPositive = m.total_pnl_sol >= 0;
+      const pnlColor = pnlPositive ? 'text-accent' : 'text-danger';
+      const pnlSign = pnlPositive ? '+' : '';
+      const pnlEl = document.getElementById("statPnl");
+      pnlEl.className = `text-xl font-bold font-mono ${pnlColor}`;
+      pnlEl.innerText = `${pnlSign}${m.total_pnl_sol.toFixed(4)} SOL`;
+      document.getElementById("statPnlUsd").innerText = `(${pnlSign}$${m.total_pnl_usd.toFixed(2)})`;
+
+      document.getElementById("statWinRate").innerText = `${m.win_rate_pct.toFixed(1)}%`;
+      document.getElementById("statTradeCount").innerText = `${m.total_trades} trades closed`;
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch("/api/status");
+        const data = await res.json();
+        updateMetrics(data);
+      } catch (e) {}
+    }
+
+    async function fetchPositions() {
+      try {
+        const res = await fetch("/api/positions");
+        const data = await res.json();
+        renderPositions(data);
+      } catch (e) {}
+    }
+
+    async function fetchTrades() {
+      try {
+        const res = await fetch("/api/trades");
+        const data = await res.json();
+        renderTrades(data);
+      } catch (e) {}
+    }
+
+    async function manualSnipe(mint, symbol) {
+      addLog(`Initiating manual snipe on ${symbol} (${mint.slice(0, 6)}...)...`);
+      try {
+        const res = await fetch("/api/snipe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mint, symbol })
+        });
+        const data = await res.json();
+        addLog(`Manual snipe queued: ${data.status}`, "accent");
+      } catch (e) {
+        addLog(`Manual snipe failed: ${e}`, "danger");
+      }
+    }
+
+    function handleQuickSnipe() {
+      const mint = document.getElementById("quickMintInput").value.trim();
+      if (!mint) return;
+      manualSnipe(mint, "MANUAL");
+      document.getElementById("quickMintInput").value = "";
+    }
+
+    async function marketSell(positionId) {
+      addLog(`Market selling position ${positionId}...`);
+      try {
+        await fetch(`/api/positions/${positionId}/sell`, { method: "POST" });
+        fetchPositions();
+      } catch (e) {
+        addLog(`Market sell failed: ${e}`, "danger");
+      }
+    }
+
+    async function emergencySellAll() {
+      if (!confirm("Are you sure you want to emergency sell ALL open positions immediately?")) return;
+      addLog("EMERGENCY EXIT: Selling all active positions...", "danger");
+      await fetch("/api/positions/emergency-sell-all", { method: "POST" });
+      fetchPositions();
+    }
+
+    async function toggleBotState() {
+      const endpoint = botRunning ? "/api/bot/stop" : "/api/bot/start";
+      const res = await fetch(endpoint, { method: "POST" });
+      const data = await res.json();
+      botRunning = data.running;
+      updateControls();
+    }
+
+    async function toggleMode() {
+      const newMode = botMode === "paper" ? "live" : "paper";
+      if (newMode === "live" && !confirm("Warning: LIVE mode requires SOLANA_PRIVATE_KEY and uses REAL SOL. Proceed?")) return;
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: newMode })
+      });
+      botMode = newMode;
+      updateControls();
+    }
+
+    function updateControls() {
+      document.getElementById("modeBadge").innerText = botMode.toUpperCase() + " TRADING";
+      document.getElementById("modeBadge").className = botMode === "live" 
+        ? "text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-danger/10 text-danger border border-danger/30 font-semibold"
+        : "text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/30 font-semibold";
+
+      const btn = document.getElementById("botStateBtn");
+      btn.innerText = botRunning ? "Pause Bot" : "Resume Bot";
+      btn.className = botRunning
+        ? "bg-accent/10 border border-accent/40 text-accent hover:bg-accent hover:text-black font-semibold text-xs px-3.5 py-1.5 rounded-lg transition"
+        : "bg-warn/10 border border-warn/40 text-warn hover:bg-warn hover:text-black font-semibold text-xs px-3.5 py-1.5 rounded-lg transition";
+    }
+
+    function addLog(text, level = "normal") {
+      const terminal = document.getElementById("logTerminal");
+      const line = document.createElement("div");
+      const timeStr = new Date().toLocaleTimeString();
+      let colorClass = "text-dim";
+      if (level === "accent") colorClass = "text-accent";
+      if (level === "danger") colorClass = "text-danger";
+      if (level === "warn") colorClass = "text-warn";
+
+      line.className = colorClass;
+      line.innerText = `[${timeStr}] ${text}`;
+      terminal.appendChild(line);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById("logTerminal").innerHTML = "";
+    }
+
+    // Initialize
+    connectWebSocket();
+    setInterval(fetchStatus, 4000);
+  </script>
+</body>
+</html>

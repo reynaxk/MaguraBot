@@ -1,0 +1,1 @@
+"""MaguraBot backend package."""

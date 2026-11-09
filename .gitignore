@@ -1,0 +1,28 @@
+# Environments
+.venv/
+env/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Environment variables
+.env
+.env.local
+*.key
+wallet.json
+
+# Logs & Databases
+logs/
+*.log
+*.sqlite3
+data/*.db
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+dist/
+build/
