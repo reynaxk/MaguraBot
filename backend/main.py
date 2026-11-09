@@ -182,13 +182,23 @@ async def websocket_endpoint(websocket: WebSocket):
             active_websockets.remove(websocket)
 
 
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+DASHBOARD_FILE = BASE_DIR / "dashboard" / "index.html"
+
+
 # ----------------------------------------------------
 # Integrated Web UI
 # ----------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse)
+@app.get("/index.html", response_class=HTMLResponse)
 async def serve_dashboard():
-    try:
-        with open("dashboard/index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception:
-        return "<h1>MaguraBot Dashboard</h1><p>Starting up dashboard UI...</p>"
+    if DASHBOARD_FILE.exists():
+        return DASHBOARD_FILE.read_text(encoding="utf-8")
+    return HTMLResponse(
+        content=f"<h1>MaguraBot Dashboard</h1><p>Dashboard HTML not found at: {DASHBOARD_FILE}</p>",
+        status_code=500,
+    )
+

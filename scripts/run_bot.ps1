@@ -13,6 +13,6 @@ if (-not (Test-Path ".venv")) {
 }
 
 Write-Host "Starting MaguraBot Sniper Engine on port 8000..." -ForegroundColor Green
-Write-Host "Open http://localhost:8000 in your browser" -ForegroundColor Green
+Write-Host "Open http://127.0.0.1:8000 in your browser (or http://localhost:8000)" -ForegroundColor Green
 
 & .\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
