@@ -172,6 +172,12 @@ class SniperEngine:
         if not pos or pos.status != PositionStatus.OPEN:
             return False
 
+        # Mark closed and remove from active tracker immediately to prevent race conditions
+        pos.status = PositionStatus.CLOSED
+        pos.exit_reason = reason
+        pos.closed_at = time.time()
+        self.tracker.remove_position(position_id)
+
         order, err = await self.executor.execute_sell(
             token_mint=pos.token_mint,
             symbol=pos.symbol,
@@ -179,9 +185,6 @@ class SniperEngine:
             current_price_sol=pos.current_price_sol,
         )
 
-        pos.status = PositionStatus.CLOSED
-        pos.exit_reason = reason
-        pos.closed_at = time.time()
         if order:
             pos.sell_order_id = order.id
             pos.sell_tx_hash = order.tx_hash
@@ -192,7 +195,6 @@ class SniperEngine:
         pos.pnl_pct = (pos.pnl_sol / pos.sol_invested) * 100.0 if pos.sol_invested > 0 else 0.0
         pos.pnl_usd = pos.pnl_sol * 180.0
 
-        self.tracker.remove_position(position_id)
         self.closed_trades.insert(0, pos)
         if len(self.closed_trades) > 100:
             self.closed_trades.pop()

@@ -55,10 +55,16 @@ class RaydiumListener:
                                 continue
                             self._seen_mints.add(mint)
                             
+                            desc = (p.get("description") or "").strip()
+                            symbol = p.get("symbol")
+                            if not symbol:
+                                first_word = desc.split()[0] if desc else ""
+                                symbol = first_word[:8].upper() if (first_word and first_word.isalnum()) else f"RAY-{mint[:4].upper()}"
+
                             token = TokenData(
                                 mint=mint,
-                                symbol=p.get("symbol", "RAY-POOL"),
-                                name=p.get("description", "Raydium Token")[:32],
+                                symbol=symbol,
+                                name=(desc[:32] if desc else f"Raydium Token {symbol}"),
                                 source=LaunchpadType.RAYDIUM,
                                 bonding_curve_pct=100.0,
                                 is_migrated=True,
