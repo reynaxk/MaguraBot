@@ -100,10 +100,22 @@ MAX_POSITIONS=5
 ```
 
 ### 4. Run the Sniper & Dashboard
+
+**On Windows (PowerShell):**
+```powershell
+.\scripts\run_bot.ps1
+```
+*Or with Command Prompt (CMD):*
+```cmd
+scripts\run_bot.bat
+```
+
+**On Linux / macOS:**
 ```bash
 ./scripts/run_bot.sh
 ```
-Open your browser at **`http://localhost:8000`** to access the live dashboard.
+
+Then open your browser at **`http://localhost:8000`** to access the live dashboard.
 
 ---
 
