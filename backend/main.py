@@ -12,6 +12,7 @@ from backend.engine.sniper import SniperEngine
 from backend.models.config import BotConfig
 from backend.models.events import BotEvent
 from backend.models.order import BotMode
+from backend.services.candles import CandleService
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,8 +20,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("MaguraBot")
 
-# Initialize global sniper engine
+# Initialize global sniper engine and candle service
 engine = SniperEngine()
+candle_service = CandleService()
 active_websockets: list[WebSocket] = []
 
 
@@ -46,6 +48,7 @@ async def lifespan(app: FastAPI):
     await engine.start()
     yield
     await engine.stop()
+    await candle_service.close()
 
 
 app = FastAPI(
@@ -129,6 +132,32 @@ async def get_trades():
 async def get_recent_tokens():
     tokens = [t.model_dump() for t in engine.recent_tokens]
     return tokens
+
+
+@app.get("/api/tokens/{mint}/candles")
+async def get_token_candles(mint: str, timeframe: str = "5m", limit: int = 60):
+    current_price = 0.0
+    for p in engine.positions.values():
+        if p.token_mint == mint:
+            current_price = p.current_price_sol
+            break
+    if current_price == 0.0:
+        for t in engine.recent_tokens:
+            if t.mint == mint and t.price_sol > 0:
+                current_price = t.price_sol
+                break
+
+    candles = await candle_service.get_candles(
+        mint=mint,
+        timeframe=timeframe,
+        limit=limit,
+        current_price_sol=current_price,
+    )
+    return {
+        "mint": mint,
+        "timeframe": timeframe,
+        "candles": candles,
+    }
 
 
 @app.post("/api/positions/{position_id}/sell")

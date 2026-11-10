@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- TradingView Lightweight Charts -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -45,7 +47,7 @@
 <body class="font-sans antialiased selection:bg-accent selection:text-black min-h-screen flex flex-col">
 
   <!-- TOP HEADER -->
-  <header class="border-b border-border1 bg-panel/80 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
+  <header class="border-b border-border1 bg-panel/90 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
     <div class="flex items-center gap-4">
       <div class="flex items-center gap-2.5">
         <div class="w-8 h-8 rounded-lg bg-accent/10 border border-accent/40 flex items-center justify-center font-bold text-accent text-lg shadow-[0_0_12px_rgba(47,227,154,0.3)]">
@@ -128,11 +130,11 @@
     </div>
   </section>
 
-  <!-- MAIN BODY: RADAR + POSITIONS -->
+  <!-- MAIN BODY: RADAR + CANDLESTICK CHART & POSITIONS -->
   <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 p-6 overflow-hidden">
 
-    <!-- LEFT COLUMN: LIVE TOKEN RADAR (5 cols) -->
-    <div class="lg:col-span-5 flex flex-col bg-panel rounded-xl border border-border1 overflow-hidden">
+    <!-- LEFT COLUMN: LIVE TOKEN RADAR (4 cols) -->
+    <div class="lg:col-span-4 flex flex-col bg-panel rounded-xl border border-border1 overflow-hidden h-[760px]">
       <div class="px-4 py-3 border-b border-border1 flex items-center justify-between bg-panel2">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-accent animate-ping"></span>
@@ -141,27 +143,96 @@
         <span class="text-[11px] font-mono text-dim" id="radarCount">Monitoring</span>
       </div>
 
-      <div class="p-3 flex-1 overflow-y-auto custom-scroll space-y-2.5 max-h-[580px]" id="radarList">
-        <div class="text-center py-16 text-dim font-mono text-xs">
+      <div class="p-3 flex-1 overflow-y-auto custom-scroll space-y-2.5" id="radarList">
+        <div class="text-center py-20 text-dim font-mono text-xs">
           Listening for new token events on Pump.fun and Raydium...
         </div>
       </div>
     </div>
 
-    <!-- RIGHT COLUMN: OPEN POSITIONS & RECENT TRADES (7 cols) -->
-    <div class="lg:col-span-7 flex flex-col space-y-5">
+    <!-- RIGHT COLUMN: CANDLESTICK CHART & TABLES (8 cols) -->
+    <div class="lg:col-span-8 flex flex-col space-y-5">
       
-      <!-- Open Positions -->
-      <div class="bg-panel rounded-xl border border-border1 overflow-hidden flex-1 flex flex-col">
-        <div class="px-4 py-3 border-b border-border1 flex items-center justify-between bg-panel2">
-          <div class="flex items-center gap-2">
-            <h2 class="text-sm font-bold tracking-wide uppercase">Open Positions</h2>
-            <span class="text-xs font-mono px-2 py-0.5 rounded bg-blueCol/10 text-blueCol border border-blueCol/20" id="openCountBadge">0</span>
+      <!-- CANDLESTICK CHART STAGE -->
+      <div class="bg-panel rounded-xl border border-border1 overflow-hidden flex flex-col h-[400px]">
+        <!-- Chart Controls Header -->
+        <div class="px-4 py-2.5 border-b border-border1 bg-panel2 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-panel border border-border2 flex items-center justify-center font-bold text-xs uppercase font-mono text-accent" id="chartTokenBadge">
+              SOL
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm text-white font-mono" id="chartTokenSymbol">TACIS / SOL</span>
+                <span class="text-[10px] font-mono text-dim cursor-pointer hover:text-accent transition" id="chartTokenAddress" onclick="copyActiveMint()">
+                  Click to copy mint
+                </span>
+              </div>
+              <div class="flex items-center gap-2 text-xs font-mono">
+                <span class="text-white font-semibold" id="chartPriceSol">0.000000045 SOL</span>
+                <span class="text-dim" id="chartPriceUsd">≈ $0.0000081</span>
+                <span class="text-accent text-[11px]" id="chartPriceChange">+0.0%</span>
+              </div>
+            </div>
           </div>
-          <span class="text-xs text-dim font-mono">Auto TP / SL Monitored</span>
+
+          <!-- Timeframes & View Toggle -->
+          <div class="flex items-center gap-2">
+            <!-- Timeframe buttons -->
+            <div class="flex items-center bg-panel border border-border1 rounded-lg p-0.5 text-xs font-mono" id="timeframeGroup">
+              <button onclick="setChartTimeframe('1m')" class="px-2 py-1 rounded text-dim hover:text-white transition" data-tf="1m">1m</button>
+              <button onclick="setChartTimeframe('5m')" class="px-2 py-1 rounded bg-panel2 text-accent font-semibold transition" data-tf="5m">5m</button>
+              <button onclick="setChartTimeframe('15m')" class="px-2 py-1 rounded text-dim hover:text-white transition" data-tf="15m">15m</button>
+              <button onclick="setChartTimeframe('1h')" class="px-2 py-1 rounded text-dim hover:text-white transition" data-tf="1h">1h</button>
+            </div>
+
+            <!-- View Switch: Candlesticks vs DexScreener -->
+            <div class="flex items-center bg-panel border border-border1 rounded-lg p-0.5 text-xs font-mono">
+              <button onclick="setChartMode('candles')" id="tabCandles" class="px-2.5 py-1 rounded bg-panel2 text-accent font-semibold transition">
+                Candles
+              </button>
+              <button onclick="setChartMode('dexscreener')" id="tabDexScreener" class="px-2.5 py-1 rounded text-dim hover:text-white transition">
+                DexScreener
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto custom-scroll max-h-[280px]">
+        <!-- Chart Canvas / DexScreener Container -->
+        <div class="flex-1 relative w-full h-full bg-[#0B0F11]">
+          <!-- Lightweight Charts Canvas -->
+          <div id="candleChartContainer" class="w-full h-full"></div>
+          
+          <!-- DexScreener Iframe (Lazy Loaded) -->
+          <iframe id="dexScreenerFrame" class="hidden w-full h-full border-0" src="" allowfullscreen></iframe>
+
+          <!-- Candle Legend / OHLCV Tooltip Overlay -->
+          <div class="absolute top-2 left-3 z-10 font-mono text-[11px] text-dim pointer-events-none flex items-center gap-3 bg-panel/70 px-2 py-1 rounded border border-border1/50" id="ohlcLegend">
+            <span>O: <b class="text-white" id="legOpen">-</b></span>
+            <span>H: <b class="text-white" id="legHigh">-</b></span>
+            <span>L: <b class="text-white" id="legLow">-</b></span>
+            <span>C: <b class="text-accent" id="legClose">-</b></span>
+            <span>Vol: <b class="text-dim" id="legVol">-</b></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- POSITIONS & TRADES TABBED SECTION -->
+      <div class="bg-panel rounded-xl border border-border1 overflow-hidden h-[340px] flex flex-col">
+        <div class="px-4 py-2.5 border-b border-border1 flex items-center justify-between bg-panel2">
+          <div class="flex items-center gap-4">
+            <button onclick="switchTableTab('positions')" id="tabPositionsBtn" class="text-xs font-mono font-bold uppercase tracking-wider text-accent border-b-2 border-accent pb-1">
+              Open Positions (<span id="openCountBadge">0</span>)
+            </button>
+            <button onclick="switchTableTab('trades')" id="tabTradesBtn" class="text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1">
+              Completed Trades (<span id="closedCount">0</span>)
+            </button>
+          </div>
+          <span class="text-xs text-dim font-mono">Click any row to focus candlestick chart</span>
+        </div>
+
+        <!-- Open Positions View -->
+        <div id="positionsView" class="flex-1 overflow-y-auto custom-scroll">
           <table class="w-full text-left text-xs font-mono">
             <thead class="text-dim bg-panel/80 sticky top-0 border-b border-border1">
               <tr>
@@ -181,15 +252,9 @@
             </tbody>
           </table>
         </div>
-      </div>
 
-      <!-- Closed Trades History -->
-      <div class="bg-panel rounded-xl border border-border1 overflow-hidden h-[260px] flex flex-col">
-        <div class="px-4 py-2.5 border-b border-border1 flex items-center justify-between bg-panel2">
-          <h2 class="text-sm font-bold tracking-wide uppercase">Completed Trades</h2>
-          <span class="text-xs text-dim font-mono" id="closedCount">0 Records</span>
-        </div>
-        <div class="flex-1 overflow-y-auto custom-scroll">
+        <!-- Completed Trades View -->
+        <div id="tradesView" class="hidden flex-1 overflow-y-auto custom-scroll">
           <table class="w-full text-left text-xs font-mono">
             <thead class="text-dim bg-panel/80 sticky top-0 border-b border-border1">
               <tr>
@@ -221,12 +286,12 @@
       </div>
       <button onclick="clearLogs()" class="text-xs font-mono text-dim hover:text-white transition">Clear Logs</button>
     </div>
-    <div class="h-28 bg-black/60 rounded-lg p-2.5 font-mono text-[11px] overflow-y-auto custom-scroll text-dim space-y-1" id="logTerminal">
+    <div class="h-24 bg-black/60 rounded-lg p-2.5 font-mono text-[11px] overflow-y-auto custom-scroll text-dim space-y-1" id="logTerminal">
       <div>[INIT] MaguraBot connected. Starting event listeners...</div>
     </div>
   </footer>
 
-  <!-- JAVASCRIPT APP LOGIC -->
+  <!-- JAVASCRIPT TERMINAL & CANDLESTICK APP -->
   <script>
     let ws;
     let botRunning = true;
@@ -235,6 +300,251 @@
     const openPositions = [];
     const closedTrades = [];
 
+    // Chart variables
+    let chart, candleSeries, volumeSeries;
+    let activeMint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+    let activeSymbol = "BONK";
+    let activeTimeframe = "5m";
+    let chartMode = "candles";
+    let entryPriceLine, tpPriceLine, slPriceLine;
+
+    // Initialize TradingView Lightweight Charts
+    function initChart() {
+      const container = document.getElementById("candleChartContainer");
+      if (!container) return;
+
+      chart = LightweightCharts.createChart(container, {
+        width: container.clientWidth,
+        height: container.clientHeight,
+        layout: {
+          background: { type: 'solid', color: '#0B0F11' },
+          textColor: '#8C9794',
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11,
+        },
+        grid: {
+          vertLines: { color: 'rgba(22, 29, 32, 0.7)' },
+          horzLines: { color: 'rgba(22, 29, 32, 0.7)' },
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal,
+          vertLine: { color: 'rgba(47, 227, 154, 0.3)', width: 1, style: 2 },
+          horzLine: { color: 'rgba(47, 227, 154, 0.3)', width: 1, style: 2 },
+        },
+        rightPriceScale: {
+          borderColor: '#1F282C',
+          scaleMargins: { top: 0.12, bottom: 0.22 },
+        },
+        timeScale: {
+          borderColor: '#1F282C',
+          timeVisible: true,
+          secondsVisible: false,
+        },
+      });
+
+      // Candlestick Series
+      candleSeries = chart.addCandlestickSeries({
+        upColor: '#2FE39A',
+        downColor: '#FF5F6D',
+        borderVisible: false,
+        wickUpColor: '#2FE39A',
+        wickDownColor: '#FF5F6D',
+        priceFormat: {
+          type: 'price',
+          precision: 9,
+          minMove: 0.000000001,
+        },
+      });
+
+      // Volume Series
+      volumeSeries = chart.addHistogramSeries({
+        color: '#2FE39A',
+        priceFormat: { type: 'volume' },
+        priceScaleId: '',
+        scaleMargins: { top: 0.82, bottom: 0 },
+      });
+
+      // Crosshair move listener for OHLCV legend
+      chart.subscribeCrosshairMove((param) => {
+        if (!param || !param.time || !param.seriesData) return;
+        const data = param.seriesData.get(candleSeries);
+        const vData = param.seriesData.get(volumeSeries);
+        if (data) {
+          document.getElementById("legOpen").innerText = data.open.toFixed(9);
+          document.getElementById("legHigh").innerText = data.high.toFixed(9);
+          document.getElementById("legLow").innerText = data.low.toFixed(9);
+          document.getElementById("legClose").innerText = data.close.toFixed(9);
+          if (vData) document.getElementById("legVol").innerText = vData.value.toFixed(1);
+        }
+      });
+
+      // Responsive Resize
+      const ro = new ResizeObserver(() => {
+        if (chart && container) {
+          chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+        }
+      });
+      ro.observe(container);
+
+      // Load initial candles
+      loadTokenCandles(activeMint, activeSymbol);
+    }
+
+    async function loadTokenCandles(mint, symbol = "TOKEN") {
+      activeMint = mint;
+      activeSymbol = symbol;
+
+      document.getElementById("chartTokenSymbol").innerText = `${symbol} / SOL`;
+      document.getElementById("chartTokenBadge").innerText = symbol.slice(0, 3).toUpperCase();
+      document.getElementById("chartTokenAddress").innerText = `${mint.slice(0, 6)}...${mint.slice(-6)} (Copy)`;
+
+      if (chartMode === "dexscreener") {
+        document.getElementById("dexScreenerFrame").src = `https://dexscreener.com/solana/${mint}?embed=1&theme=dark&trades=0&info=0`;
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/tokens/${mint}/candles?timeframe=${activeTimeframe}&limit=70`);
+        const data = await res.json();
+        const candles = data.candles || [];
+
+        if (candles.length > 0) {
+          // Format for lightweight-charts
+          const chartCandles = candles.map(c => ({
+            time: c.time,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }));
+
+          const chartVols = candles.map(c => ({
+            time: c.time,
+            value: c.volume || 100,
+            color: c.close >= c.open ? 'rgba(47, 227, 154, 0.35)' : 'rgba(255, 95, 109, 0.35)',
+          }));
+
+          candleSeries.setData(chartCandles);
+          volumeSeries.setData(chartVols);
+          chart.timeScale().fitContent();
+
+          const latest = candles[candles.length - 1];
+          document.getElementById("chartPriceSol").innerText = `${latest.close.toFixed(9)} SOL`;
+          document.getElementById("chartPriceUsd").innerText = `≈ $${(latest.close * 180).toFixed(6)}`;
+
+          document.getElementById("legOpen").innerText = latest.open.toFixed(9);
+          document.getElementById("legHigh").innerText = latest.high.toFixed(9);
+          document.getElementById("legLow").innerText = latest.low.toFixed(9);
+          document.getElementById("legClose").innerText = latest.close.toFixed(9);
+          document.getElementById("legVol").innerText = (latest.volume || 0).toFixed(1);
+
+          updateChartOverlayLines(mint);
+        }
+      } catch (e) {
+        console.error("Failed to load candles:", e);
+      }
+    }
+
+    function updateChartOverlayLines(mint) {
+      // Clear old price lines
+      if (entryPriceLine && candleSeries) candleSeries.removePriceLine(entryPriceLine);
+      if (tpPriceLine && candleSeries) candleSeries.removePriceLine(tpPriceLine);
+      if (slPriceLine && candleSeries) candleSeries.removePriceLine(slPriceLine);
+
+      // Check if this token is currently in active positions
+      const pos = openPositions.find(p => p.token_mint === mint);
+      if (pos && candleSeries) {
+        entryPriceLine = candleSeries.createPriceLine({
+          price: pos.buy_price_sol,
+          color: '#3BA7FF',
+          lineWidth: 2,
+          lineStyle: 1, // Dotted
+          axisLabelVisible: true,
+          title: `ENTRY (${pos.buy_price_sol.toFixed(8)})`,
+        });
+
+        tpPriceLine = candleSeries.createPriceLine({
+          price: pos.take_profit_price,
+          color: '#2FE39A',
+          lineWidth: 2,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: `TP TARGET (${pos.take_profit_price.toFixed(8)})`,
+        });
+
+        slPriceLine = candleSeries.createPriceLine({
+          price: pos.stop_loss_price,
+          color: '#FF5F6D',
+          lineWidth: 2,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: `SL TARGET (${pos.stop_loss_price.toFixed(8)})`,
+        });
+      }
+    }
+
+    function setChartTimeframe(tf) {
+      activeTimeframe = tf;
+      document.querySelectorAll("#timeframeGroup button").forEach(b => {
+        if (b.dataset.tf === tf) {
+          b.className = "px-2 py-1 rounded bg-panel2 text-accent font-semibold transition";
+        } else {
+          b.className = "px-2 py-1 rounded text-dim hover:text-white transition";
+        }
+      });
+      loadTokenCandles(activeMint, activeSymbol);
+    }
+
+    function setChartMode(mode) {
+      chartMode = mode;
+      const cContainer = document.getElementById("candleChartContainer");
+      const dFrame = document.getElementById("dexScreenerFrame");
+      const legend = document.getElementById("ohlcLegend");
+      const tabC = document.getElementById("tabCandles");
+      const tabD = document.getElementById("tabDexScreener");
+
+      if (mode === "candles") {
+        cContainer.classList.remove("hidden");
+        dFrame.classList.add("hidden");
+        legend.classList.remove("hidden");
+        tabC.className = "px-2.5 py-1 rounded bg-panel2 text-accent font-semibold transition";
+        tabD.className = "px-2.5 py-1 rounded text-dim hover:text-white transition";
+        loadTokenCandles(activeMint, activeSymbol);
+      } else {
+        cContainer.classList.add("hidden");
+        dFrame.classList.remove("hidden");
+        legend.classList.add("hidden");
+        tabD.className = "px-2.5 py-1 rounded bg-panel2 text-accent font-semibold transition";
+        tabC.className = "px-2.5 py-1 rounded text-dim hover:text-white transition";
+        dFrame.src = `https://dexscreener.com/solana/${activeMint}?embed=1&theme=dark&trades=0&info=0`;
+      }
+    }
+
+    function copyActiveMint() {
+      navigator.clipboard.writeText(activeMint);
+      addLog(`Copied mint address: ${activeMint}`, "accent");
+    }
+
+    function switchTableTab(tab) {
+      const pView = document.getElementById("positionsView");
+      const tView = document.getElementById("tradesView");
+      const pBtn = document.getElementById("tabPositionsBtn");
+      const tBtn = document.getElementById("tabTradesBtn");
+
+      if (tab === "positions") {
+        pView.classList.remove("hidden");
+        tView.classList.add("hidden");
+        pBtn.className = "text-xs font-mono font-bold uppercase tracking-wider text-accent border-b-2 border-accent pb-1";
+        tBtn.className = "text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1";
+      } else {
+        pView.classList.add("hidden");
+        tView.classList.remove("hidden");
+        tBtn.className = "text-xs font-mono font-bold uppercase tracking-wider text-accent border-b-2 border-accent pb-1";
+        pBtn.className = "text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1";
+      }
+    }
+
+    // WebSocket Integration
     function connectWebSocket() {
       const loc = window.location;
       const wsUrl = (loc.protocol === "https:" ? "wss://" : "ws://") + loc.host + "/ws";
@@ -249,7 +559,6 @@
       ws.onclose = () => {
         document.getElementById("wsIndicator").className = "inline-block w-2.5 h-2.5 rounded-full bg-danger";
         document.getElementById("wsStatus").innerText = "RECONNECTING...";
-        addLog("WebSocket disconnected. Reconnecting in 3s...", "danger");
         setTimeout(connectWebSocket, 3000);
       };
 
@@ -268,8 +577,12 @@
         updateMetrics(msg.metrics);
         renderPositions(msg.positions || []);
         renderTrades(msg.trades || []);
-        if (msg.recent_tokens) {
+        if (msg.recent_tokens && msg.recent_tokens.length > 0) {
           msg.recent_tokens.forEach(addTokenCard);
+          // Focus chart on the latest token if not set
+          if (!activeMint && msg.recent_tokens[0]) {
+            loadTokenCandles(msg.recent_tokens[0].mint, msg.recent_tokens[0].symbol);
+          }
         }
       } else if (msg.event === "token_discovered") {
         addTokenCard(msg.data);
@@ -278,6 +591,17 @@
         fetchPositions();
       } else if (msg.event === "position_updated") {
         fetchPositions();
+        // If this is the active charted token, update the candle tick!
+        if (msg.data.token_mint === activeMint && candleSeries) {
+          const nowSec = Math.floor(Date.now() / 1000);
+          candleSeries.update({
+            time: nowSec,
+            open: msg.data.current_price_sol,
+            high: Math.max(msg.data.current_price_sol, msg.data.peak_price_sol || msg.data.current_price_sol),
+            low: msg.data.current_price_sol * 0.99,
+            close: msg.data.current_price_sol,
+          });
+        }
       } else if (msg.event === "position_closed") {
         addLog(`CLOSED: ${msg.message}`, "accent");
         fetchPositions();
@@ -287,7 +611,6 @@
         botRunning = msg.data.running;
         botMode = msg.data.mode;
         updateControls();
-        addLog(`Bot state: ${botRunning ? 'Running' : 'Paused'} (${botMode})`);
       }
     }
 
@@ -298,15 +621,19 @@
       if (recentTokens.length > 50) recentTokens.pop();
 
       const card = document.createElement("div");
-      card.className = "bg-panel2 p-3 rounded-lg border border-border1 hover:border-accent/40 transition flex items-center justify-between";
-      
-      const isSafe = token.safety ? token.safety.is_safe : true;
+      card.className = "bg-panel2 p-3 rounded-lg border border-border1 hover:border-accent/40 transition flex items-center justify-between cursor-pointer group";
+      card.onclick = (e) => {
+        // Prevent click if clicking snipe button
+        if (e.target.tagName === 'BUTTON') return;
+        loadTokenCandles(token.mint, token.symbol);
+      };
+
       const score = token.safety ? token.safety.score : 80;
       const scoreColor = score >= 70 ? 'text-accent bg-accent/10 border-accent/30' : (score >= 40 ? 'text-warn bg-warn/10 border-warn/30' : 'text-danger bg-danger/10 border-danger/30');
 
       card.innerHTML = `
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-panel border border-border2 flex items-center justify-center font-bold text-xs uppercase font-mono text-white">
+          <div class="w-8 h-8 rounded-lg bg-panel border border-border2 flex items-center justify-center font-bold text-xs uppercase font-mono text-white group-hover:text-accent group-hover:border-accent/40 transition">
             ${token.symbol.slice(0, 3)}
           </div>
           <div>
@@ -315,20 +642,23 @@
               <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${scoreColor}">${score}/100</span>
               <span class="text-[10px] text-dim font-mono">${token.source}</span>
             </div>
-            <div class="text-[11px] text-dim font-mono mt-0.5 truncate max-w-[200px]">
-              ${token.name} • ${token.mint.slice(0, 4)}...${token.mint.slice(-4)}
+            <div class="text-[11px] text-dim font-mono mt-0.5 truncate max-w-[150px]">
+              ${token.name}
             </div>
           </div>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
           ${token.bonding_curve_pct ? `
-            <div class="text-right hidden sm:block">
+            <div class="text-right hidden sm:block pr-1">
               <div class="text-[10px] text-dim font-mono">Curve</div>
               <div class="text-xs font-mono font-semibold text-accent">${token.bonding_curve_pct.toFixed(0)}%</div>
             </div>
           ` : ''}
-          <button onclick="manualSnipe('${token.mint}', '${token.symbol}')" class="bg-panel hover:bg-accent hover:text-black border border-border2 hover:border-accent text-accent font-mono text-xs px-3 py-1.5 rounded-lg transition font-semibold">
+          <button onclick="loadTokenCandles('${token.mint}', '${token.symbol}')" class="bg-panel hover:bg-panel2 border border-border2 text-dim hover:text-white font-mono text-[11px] px-2 py-1.5 rounded transition">
+            Chart
+          </button>
+          <button onclick="manualSnipe('${token.mint}', '${token.symbol}')" class="bg-panel hover:bg-accent hover:text-black border border-border2 hover:border-accent text-accent font-mono text-[11px] px-2.5 py-1.5 rounded transition font-semibold">
             Snipe
           </button>
         </div>
@@ -339,6 +669,9 @@
     }
 
     function renderPositions(positions) {
+      openPositions.length = 0;
+      openPositions.push(...positions);
+
       const tbody = document.getElementById("positionsTableBody");
       document.getElementById("openCountBadge").innerText = positions.length;
       document.getElementById("statActiveCount").innerText = `${positions.length} / 5`;
@@ -354,9 +687,12 @@
         const pnlSign = pnlPositive ? '+' : '';
 
         return `
-          <tr class="hover:bg-panel2/50 transition">
+          <tr class="hover:bg-panel2/50 transition cursor-pointer" onclick="loadTokenCandles('${p.token_mint}', '${p.symbol}')">
             <td class="py-3 px-4">
-              <div class="font-bold text-white">${p.symbol}</div>
+              <div class="font-bold text-white flex items-center gap-1.5">
+                ${p.symbol}
+                <span class="text-[10px] text-accent font-normal">📈 Chart</span>
+              </div>
               <div class="text-[10px] text-dim">${p.token_mint.slice(0, 4)}...${p.token_mint.slice(-4)}</div>
             </td>
             <td class="py-3 px-3 text-dim">${p.buy_price_sol.toFixed(8)} SOL</td>
@@ -366,18 +702,23 @@
               <span class="text-[10px] text-dim block">${pnlSign}${p.pnl_sol.toFixed(4)} SOL</span>
             </td>
             <td class="py-3 px-4 text-right">
-              <button onclick="marketSell('${p.id}')" class="bg-danger/10 hover:bg-danger hover:text-white border border-danger/30 text-danger text-xs px-2.5 py-1 rounded transition">
+              <button onclick="event.stopPropagation(); marketSell('${p.id}')" class="bg-danger/10 hover:bg-danger hover:text-white border border-danger/30 text-danger text-xs px-2.5 py-1 rounded transition">
                 Sell
               </button>
             </td>
           </tr>
         `;
       }).join('');
+
+      updateChartOverlayLines(activeMint);
     }
 
     function renderTrades(trades) {
+      closedTrades.length = 0;
+      closedTrades.push(...trades);
+
       const tbody = document.getElementById("tradesTableBody");
-      document.getElementById("closedCount").innerText = `${trades.length} Records`;
+      document.getElementById("closedCount").innerText = `${trades.length}`;
 
       if (!trades || trades.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-dim">No closed trades yet</td></tr>`;
@@ -390,7 +731,7 @@
         const pnlSign = pnlPositive ? '+' : '';
 
         return `
-          <tr class="hover:bg-panel2/50 transition">
+          <tr class="hover:bg-panel2/50 transition cursor-pointer" onclick="loadTokenCandles('${t.token_mint}', '${t.symbol}')">
             <td class="py-2.5 px-4 font-bold text-white">${t.symbol}</td>
             <td class="py-2.5 px-3 text-dim">${t.sol_invested.toFixed(3)} SOL</td>
             <td class="py-2.5 px-3 uppercase text-[11px] text-dim">${t.exit_reason || 'MANUAL'}</td>
@@ -461,6 +802,7 @@
       const mint = document.getElementById("quickMintInput").value.trim();
       if (!mint) return;
       manualSnipe(mint, "MANUAL");
+      loadTokenCandles(mint, "MANUAL");
       document.getElementById("quickMintInput").value = "";
     }
 
@@ -533,9 +875,12 @@
       document.getElementById("logTerminal").innerHTML = "";
     }
 
-    // Initialize
-    connectWebSocket();
-    setInterval(fetchStatus, 4000);
+    // Initialize Chart and WebSocket
+    window.addEventListener("DOMContentLoaded", () => {
+      initChart();
+      connectWebSocket();
+      setInterval(fetchStatus, 4000);
+    });
   </script>
 </body>
 </html>
