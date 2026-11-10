@@ -20,6 +20,7 @@ class BotConfig(BaseModel):
     max_positions: int = Field(default=5, ge=1, le=20)
     slippage_bps: int = Field(default=500, ge=50, le=5000)
     priority_fee_microlamports: int = Field(default=100000, ge=0)
+    priority_fee_level: str = "fast"
     use_jito: bool = False
     jito_tip_sol: float = 0.001
     
@@ -27,6 +28,7 @@ class BotConfig(BaseModel):
     take_profit_pct: float = Field(default=50.0, ge=1.0)
     stop_loss_pct: float = Field(default=20.0, ge=1.0, le=99.0)
     trailing_stop_pct: float = Field(default=15.0, ge=1.0)
+    enable_scale_out: bool = True
     max_hold_time_minutes: int = Field(default=60, ge=1)
     
     # Anti-Rug Filters

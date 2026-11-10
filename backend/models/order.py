@@ -29,6 +29,7 @@ class PositionStatus(str, Enum):
 
 class ExitReason(str, Enum):
     TAKE_PROFIT = "take_profit"
+    PARTIAL_TAKE_PROFIT = "partial_tp"
     STOP_LOSS = "stop_loss"
     TRAILING_STOP = "trailing_stop"
     TIMEOUT = "timeout"
@@ -85,6 +86,9 @@ class Position(BaseModel):
     take_profit_price: float
     stop_loss_price: float
     trailing_stop_active: bool = False
+    scale_out_triggered: bool = False
+    initial_tokens_held: float = 0.0
+    realized_pnl_sol: float = 0.0
     
     # Exit details
     sell_order_id: Optional[str] = None

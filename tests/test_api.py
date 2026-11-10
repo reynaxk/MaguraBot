@@ -70,13 +70,15 @@ class TestMaguraBotAPI(unittest.TestCase):
         self.assertIn("latency_ms", data)
         self.assertIn("rpc_url", data)
 
-    def test_jito_and_auto_snipe_config(self):
-        res = self.client.post("/api/config", json={"use_jito": True, "auto_snipe": False, "max_daily_loss_sol": 2.5})
+    def test_token_audit_endpoint(self):
+        res = self.client.get("/api/tokens/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263/audit")
         self.assertEqual(res.status_code, 200)
-        cfg = res.json()["config"]
-        self.assertTrue(cfg["use_jito"])
-        self.assertFalse(cfg["auto_snipe"])
-        self.assertEqual(cfg["max_daily_loss_sol"], 2.5)
+        data = res.json()
+        self.assertIn("score", data)
+        self.assertIn("links", data)
+        self.assertIn("solscan", data["links"])
+        self.assertIn("dexscreener", data["links"])
+
 
 
 

@@ -401,6 +401,14 @@
               <input id="cfgSlippage" type="number" step="50" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
             </div>
             <div>
+              <label class="block text-dim mb-1">Priority Fee Level</label>
+              <select id="cfgPriorityFeeLevel" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent">
+                <option value="normal">Normal (50k µLamports)</option>
+                <option value="fast" selected>Fast (250k µLamports)</option>
+                <option value="turbo">Turbo (1,000k µLamports)</option>
+              </select>
+            </div>
+            <div>
               <label class="block text-dim mb-1">Min Safety Score (0-100)</label>
               <input id="cfgMinSafety" type="number" min="0" max="100" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
             </div>
@@ -423,6 +431,12 @@
               <label class="block text-dim mb-1">Trailing Stop %</label>
               <input id="cfgTrailingStop" type="number" step="5" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
             </div>
+          </div>
+          <div class="pt-1">
+            <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
+              <input id="cfgEnableScaleOut" type="checkbox" checked class="accent-accent" />
+              <span class="text-white text-[11px]">Auto-Scale Out (Sell 50% at TP1 to secure principal, keep 50% Moonbag with Trailing Stop)</span>
+            </label>
           </div>
         </div>
 
@@ -568,6 +582,77 @@
       <div class="flex items-center justify-end pt-3 border-t border-border1">
         <button onclick="closeWalletModal()" class="px-5 py-2 rounded-lg bg-panel2 hover:bg-border1 border border-border2 text-white font-mono text-xs transition">
           Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOKEN AUDIT MODAL -->
+  <div id="auditModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-panel border border-border2 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scroll p-6 shadow-2xl space-y-4 font-mono">
+      <div class="flex items-center justify-between border-b border-border1 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🛡️</span>
+          <div>
+            <h3 class="font-bold text-base text-white flex items-center gap-2">
+              <span id="auditSymbol">TOKEN</span>
+              <span id="auditTierBadge" class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/30 font-semibold">LOW RISK</span>
+            </h3>
+            <span id="auditMint" class="text-[11px] text-dim truncate max-w-[280px] block">Mint Address</span>
+          </div>
+        </div>
+        <button onclick="closeAuditModal()" class="text-dim hover:text-white text-lg font-mono">✕</button>
+      </div>
+
+      <!-- Audit Body -->
+      <div class="space-y-3.5 text-xs">
+        <!-- Safety Score Row -->
+        <div class="bg-panel2 p-3.5 rounded-xl border border-border1 flex items-center justify-between">
+          <div>
+            <span class="text-dim text-[11px] block">SAFETY SCORE</span>
+            <div class="text-2xl font-bold font-mono mt-0.5 text-accent" id="auditScore">--/100</div>
+          </div>
+          <div class="text-right space-y-1">
+            <div id="auditMintAuth" class="text-xs font-semibold text-accent">Mint Authority: --</div>
+            <div id="auditFreezeAuth" class="text-xs font-semibold text-accent">Freeze Authority: --</div>
+          </div>
+        </div>
+
+        <!-- Risks / Flags List -->
+        <div class="space-y-1.5">
+          <span class="text-dim text-[11px] block uppercase font-semibold">Risk Analysis Flags</span>
+          <div id="auditReasonsList" class="bg-panel2/60 border border-border1 rounded-xl p-3 space-y-1.5 max-h-40 overflow-y-auto custom-scroll text-[11px]">
+            <div class="text-dim">Loading security report...</div>
+          </div>
+        </div>
+
+        <!-- Explorer & Tool Links -->
+        <div class="space-y-1.5 pt-1">
+          <span class="text-dim text-[11px] block uppercase font-semibold">Explorer & Analysis Links</span>
+          <div class="grid grid-cols-2 gap-2 text-[11px]">
+            <a id="linkSolscan" href="#" target="_blank" class="bg-panel2 hover:bg-border1 border border-border1 p-2 rounded-lg text-white hover:text-accent transition flex items-center justify-between">
+              <span>Solscan Explorer</span> <span>↗</span>
+            </a>
+            <a id="linkDexscreener" href="#" target="_blank" class="bg-panel2 hover:bg-border1 border border-border1 p-2 rounded-lg text-white hover:text-accent transition flex items-center justify-between">
+              <span>DexScreener</span> <span>↗</span>
+            </a>
+            <a id="linkRugcheck" href="#" target="_blank" class="bg-panel2 hover:bg-border1 border border-border1 p-2 rounded-lg text-white hover:text-accent transition flex items-center justify-between">
+              <span>RugCheck.xyz</span> <span>↗</span>
+            </a>
+            <a id="linkPumpfun" href="#" target="_blank" class="bg-panel2 hover:bg-border1 border border-border1 p-2 rounded-lg text-white hover:text-accent transition flex items-center justify-between">
+              <span>Pump.fun</span> <span>↗</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Footer -->
+      <div class="flex items-center justify-between pt-3 border-t border-border1">
+        <button onclick="closeAuditModal()" class="px-4 py-2 rounded-lg border border-border2 text-dim hover:text-white text-xs transition">
+          Close
+        </button>
+        <button id="auditSnipeBtn" onclick="snipeFromAudit()" class="px-5 py-2 rounded-lg bg-accent hover:bg-emerald-400 text-black font-semibold text-xs transition">
+          Snipe Token
         </button>
       </div>
     </div>
@@ -929,6 +1014,9 @@
               <div class="text-xs font-mono font-semibold text-accent">${token.bonding_curve_pct.toFixed(0)}%</div>
             </div>
           ` : ''}
+          <button onclick="openAuditModal('${token.mint}', '${token.symbol}')" class="bg-panel hover:bg-panel2 border border-border2 text-dim hover:text-white font-mono text-[11px] px-2 py-1.5 rounded transition">
+            Audit
+          </button>
           <button onclick="loadTokenCandles('${token.mint}', '${token.symbol}')" class="bg-panel hover:bg-panel2 border border-border2 text-dim hover:text-white font-mono text-[11px] px-2 py-1.5 rounded transition">
             Chart
           </button>
@@ -1230,6 +1318,8 @@
         document.getElementById("cfgUseJito").checked = !!cfg.use_jito;
         document.getElementById("cfgJitoTip").value = cfg.jito_tip_sol || 0.001;
         document.getElementById("cfgMaxDailyLoss").value = cfg.max_daily_loss_sol || 1.0;
+        document.getElementById("cfgEnableScaleOut").checked = cfg.enable_scale_out !== false;
+        document.getElementById("cfgPriorityFeeLevel").value = cfg.priority_fee_level || "fast";
         document.getElementById("cfgDiscord").value = cfg.discord_webhook_url || "";
         document.getElementById("cfgTgToken").value = cfg.telegram_bot_token || "";
         document.getElementById("cfgTgChat").value = cfg.telegram_chat_id || "";
@@ -1257,6 +1347,8 @@
         take_profit_pct: parseFloat(document.getElementById("cfgTakeProfit").value) || 50,
         stop_loss_pct: parseFloat(document.getElementById("cfgStopLoss").value) || 20,
         trailing_stop_pct: parseFloat(document.getElementById("cfgTrailingStop").value) || 15,
+        enable_scale_out: document.getElementById("cfgEnableScaleOut").checked,
+        priority_fee_level: document.getElementById("cfgPriorityFeeLevel").value,
         use_jito: document.getElementById("cfgUseJito").checked,
         jito_tip_sol: parseFloat(document.getElementById("cfgJitoTip").value) || 0.001,
         max_daily_loss_sol: parseFloat(document.getElementById("cfgMaxDailyLoss").value) || 1.0,
@@ -1279,6 +1371,72 @@
         }
       } catch (e) {
         addLog(`Failed to save settings: ${e}`, "danger");
+      }
+    }
+
+    // Token Audit Modal handlers
+    let currentAuditMint = null;
+    let currentAuditSymbol = null;
+
+    async function openAuditModal(mint, symbol) {
+      currentAuditMint = mint;
+      currentAuditSymbol = symbol || "TOKEN";
+
+      document.getElementById("auditSymbol").innerText = currentAuditSymbol;
+      document.getElementById("auditMint").innerText = mint;
+      document.getElementById("auditScore").innerText = "...";
+      document.getElementById("auditReasonsList").innerHTML = `<div class="text-dim">Analyzing on-chain authorities and RugCheck API...</div>`;
+      document.getElementById("auditModal").classList.remove("hidden");
+
+      try {
+        const res = await fetch(`/api/tokens/${mint}/audit`);
+        if (res.ok) {
+          const d = await res.json();
+          document.getElementById("auditScore").innerText = `${d.score}/100`;
+          
+          const badge = document.getElementById("auditTierBadge");
+          badge.innerText = d.risk_tier;
+          badge.className = d.badge_color === "accent" 
+            ? "text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/30 font-semibold"
+            : (d.badge_color === "warn"
+              ? "text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-warn/10 text-warn border border-warn/30 font-semibold"
+              : "text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-danger/10 text-danger border border-danger/30 font-semibold");
+
+          const mintEl = document.getElementById("auditMintAuth");
+          mintEl.innerText = d.mint_authority_revoked ? "Mint Authority: REVOKED (Safe)" : "Mint Authority: ACTIVE (Risk)";
+          mintEl.className = d.mint_authority_revoked ? "text-xs font-semibold text-accent" : "text-xs font-semibold text-danger";
+
+          const frzEl = document.getElementById("auditFreezeAuth");
+          frzEl.innerText = d.freeze_authority_revoked ? "Freeze Authority: REVOKED (Safe)" : "Freeze Authority: ACTIVE (Honeypot Risk)";
+          frzEl.className = d.freeze_authority_revoked ? "text-xs font-semibold text-accent" : "text-xs font-semibold text-danger";
+
+          // Risks list
+          const rList = document.getElementById("auditReasonsList");
+          if (!d.reasons || d.reasons.length === 0) {
+            rList.innerHTML = `<div class="text-accent flex items-center gap-1.5 font-semibold">✓ Passed all anti-rug checks (No honeypot or malicious authorities detected)</div>`;
+          } else {
+            rList.innerHTML = d.reasons.map(r => `<div class="text-warn flex items-center gap-1.5">⚠️ ${r}</div>`).join("");
+          }
+
+          // Links
+          document.getElementById("linkSolscan").href = d.links.solscan;
+          document.getElementById("linkDexscreener").href = d.links.dexscreener;
+          document.getElementById("linkRugcheck").href = d.links.rugcheck;
+          document.getElementById("linkPumpfun").href = d.links.pumpfun;
+        }
+      } catch (e) {
+        document.getElementById("auditReasonsList").innerHTML = `<div class="text-danger">Failed to fetch security audit: ${e}</div>`;
+      }
+    }
+
+    function closeAuditModal() {
+      document.getElementById("auditModal").classList.add("hidden");
+    }
+
+    function snipeFromAudit() {
+      if (currentAuditMint) {
+        manualSnipe(currentAuditMint, currentAuditSymbol);
+        closeAuditModal();
       }
     }
 

@@ -22,6 +22,8 @@ class PositionTracker:
         self._task: Optional[asyncio.Task] = None
 
     def add_position(self, position: Position):
+        if not position.initial_tokens_held:
+            position.initial_tokens_held = position.tokens_held
         self.positions[position.id] = position
         logger.info(
             f"Tracking new position {position.symbol} [{position.id}]: "
@@ -77,11 +79,17 @@ class PositionTracker:
         p.pnl_pct = (p.pnl_sol / p.sol_invested) * 100.0 if p.sol_invested > 0 else 0.0
         p.pnl_usd = p.pnl_sol * 180.0
 
-        # 3. Check Take Profit
+        # 3. Check Take Profit / Scale Out
         if p.pnl_pct >= self.config.take_profit_pct:
-            logger.info(f"Target Take Profit reached for {p.symbol}: +{p.pnl_pct:.1f}%")
-            await self.on_exit_triggered(p, ExitReason.TAKE_PROFIT)
-            return
+            if self.config.enable_scale_out and not p.scale_out_triggered:
+                p.scale_out_triggered = True
+                logger.info(f"Scale-out TP1 triggered for {p.symbol}: +{p.pnl_pct:.1f}%. Selling 50% moonbag setup...")
+                await self.on_exit_triggered(p, ExitReason.PARTIAL_TAKE_PROFIT)
+                return
+            else:
+                logger.info(f"Target Take Profit reached for {p.symbol}: +{p.pnl_pct:.1f}%")
+                await self.on_exit_triggered(p, ExitReason.TAKE_PROFIT)
+                return
 
         # 4. Check Stop Loss
         if p.pnl_pct <= -self.config.stop_loss_pct:

@@ -201,7 +201,39 @@ class SniperEngine:
         if not pos or pos.status != PositionStatus.OPEN:
             return False
 
-        # Mark closed and remove from active tracker immediately to prevent race conditions
+        # Handle Scale-Out Partial Take Profit (Sell 50% to lock profit, leave moonbag)
+        if reason == ExitReason.PARTIAL_TAKE_PROFIT:
+            tokens_to_sell = pos.tokens_held * 0.5
+            order, err = await self.executor.execute_sell(
+                token_mint=pos.token_mint,
+                symbol=pos.symbol,
+                amount_tokens=tokens_to_sell,
+                current_price_sol=pos.current_price_sol,
+            )
+            if order and order.status == OrderStatus.FILLED:
+                pos.tokens_held -= tokens_to_sell
+                sol_earned = order.amount_sol
+                cost_sold = pos.sol_invested * 0.5
+                realized_gain = sol_earned - cost_sold
+                pos.realized_pnl_sol += realized_gain
+                pos.sol_invested -= cost_sold
+                pos.take_profit_price = pos.take_profit_price * 1.5
+                pos.trailing_stop_active = True
+
+                self.broadcast(
+                    EventType.POSITION_UPDATED,
+                    pos.model_dump(),
+                    f"Scale-out TP1 on {pos.symbol}: secured 50% profit (+{realized_gain:.4f} SOL). Moonbag running!",
+                )
+                asyncio.create_task(
+                    self.alerts.send_exit_alert(
+                        pos.symbol, pos.pnl_pct, realized_gain, "Scale-Out (50%)", self.config.mode.value
+                    )
+                )
+                return True
+            return False
+
+        # Full Close: Mark closed and remove from active tracker immediately to prevent race conditions
         pos.status = PositionStatus.CLOSED
         pos.exit_reason = reason
         pos.closed_at = time.time()

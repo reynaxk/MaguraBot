@@ -106,3 +106,39 @@ class SecurityService:
             top10_holding_pct=top10_holding_pct,
             reasons=reasons,
         )
+
+    async def get_token_audit(self, mint: str, symbol: Optional[str] = None) -> dict:
+        """Fetch comprehensive token security audit with risk rating and explorer links."""
+        safety = await self.evaluate_token(mint)
+        
+        if safety.score >= 80:
+            risk_tier = "LOW RISK"
+            badge_color = "accent"
+        elif safety.score >= 50:
+            risk_tier = "MEDIUM RISK"
+            badge_color = "warn"
+        else:
+            risk_tier = "HIGH RISK"
+            badge_color = "danger"
+
+        return {
+            "mint": mint,
+            "symbol": symbol or "TOKEN",
+            "score": safety.score,
+            "is_safe": safety.is_safe,
+            "risk_tier": risk_tier,
+            "badge_color": badge_color,
+            "mint_authority_revoked": safety.mint_authority_revoked,
+            "freeze_authority_revoked": safety.freeze_authority_revoked,
+            "top10_holding_pct": safety.top10_holding_pct,
+            "dev_holding_pct": safety.dev_holding_pct,
+            "reasons": safety.reasons,
+            "links": {
+                "solscan": f"https://solscan.io/token/{mint}",
+                "rugcheck": f"https://rugcheck.xyz/tokens/{mint}",
+                "dexscreener": f"https://dexscreener.com/solana/{mint}",
+                "pumpfun": f"https://pump.fun/{mint}",
+                "photon": f"https://photon-sol.tinyastro.io/en/lp/{mint}",
+            }
+        }
+

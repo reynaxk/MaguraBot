@@ -91,10 +91,13 @@ class ConfigUpdateRequest(BaseModel):
     take_profit_pct: Optional[float] = None
     stop_loss_pct: Optional[float] = None
     trailing_stop_pct: Optional[float] = None
+    enable_scale_out: Optional[bool] = None
     min_safety_score: Optional[int] = None
     max_daily_loss_sol: Optional[float] = None
     use_jito: Optional[bool] = None
     jito_tip_sol: Optional[float] = None
+    priority_fee_level: Optional[str] = None
+    priority_fee_microlamports: Optional[int] = None
     solana_rpc_url: Optional[str] = None
     enable_pumpfun: Optional[bool] = None
     enable_raydium: Optional[bool] = None
@@ -110,6 +113,14 @@ async def update_config(req: ConfigUpdateRequest):
     updates = req.model_dump(exclude_unset=True)
     for k, v in updates.items():
         setattr(engine.config, k, v)
+    if "priority_fee_level" in updates:
+        level = updates["priority_fee_level"].lower()
+        if level == "turbo":
+            engine.config.priority_fee_microlamports = 1000000
+        elif level == "fast":
+            engine.config.priority_fee_microlamports = 250000
+        else:
+            engine.config.priority_fee_microlamports = 50000
     engine.executor.config = engine.config
     engine.tracker.config = engine.config
     if "solana_rpc_url" in updates:
@@ -243,6 +254,22 @@ async def get_network_latency():
 async def get_recent_tokens():
     tokens = [t.model_dump() for t in engine.recent_tokens]
     return tokens
+
+
+@app.get("/api/tokens/{mint}/audit")
+async def get_token_audit(mint: str):
+    symbol = "TOKEN"
+    for t in engine.recent_tokens:
+        if t.mint == mint:
+            symbol = t.symbol
+            break
+    if symbol == "TOKEN":
+        for p in engine.positions.values():
+            if p.token_mint == mint:
+                symbol = p.symbol
+                break
+    audit = await engine.security.get_token_audit(mint, symbol)
+    return audit
 
 
 @app.get("/api/tokens/{mint}/candles")

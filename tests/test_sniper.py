@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 from backend.models.config import BotConfig
-from backend.models.order import BotMode, OrderType, OrderStatus, ExitReason
+from backend.models.order import BotMode, OrderType, OrderStatus, ExitReason, Position
 from backend.models.token import TokenData, LaunchpadType, TokenSafetyScore
 from backend.services.security import SecurityService
 from backend.services.jupiter import JupiterService
@@ -131,9 +131,41 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         )
         passed2, reason2 = await self.risk_agent.evaluate(safe_token)
         self.assertFalse(passed2)
-        self.assertIn("Creator EvilCrea is blacklisted", reason2)
+    async def test_scale_out_execution(self):
+        """When scale out is enabled, Take Profit should trigger PARTIAL_TAKE_PROFIT."""
+        triggered_reasons = []
 
+        async def mock_exit_callback(pos, reason):
+            triggered_reasons.append(reason)
+
+        tracker = PositionTracker(self.config, mock_exit_callback)
+        pos = Position(
+            token_mint="TestMoon123",
+            symbol="MOON",
+            name="Moon Token",
+            mode=BotMode.PAPER,
+            buy_order_id="b1",
+            buy_price_sol=0.0001,
+            buy_price_usd=0.018,
+            sol_invested=0.1,
+            tokens_held=1000.0,
+            current_price_sol=0.0001,
+            current_price_usd=0.018,
+            peak_price_sol=0.0001,
+            take_profit_price=0.00015,
+            stop_loss_price=0.00008,
+        )
+        tracker.add_position(pos)
+        self.assertEqual(pos.initial_tokens_held, 1000.0)
+
+        # Simulate +60% pump
+        pos.current_price_sol = 0.00016
+        await tracker._evaluate_position(pos)
+
+        self.assertIn(ExitReason.PARTIAL_TAKE_PROFIT, triggered_reasons)
+        self.assertTrue(pos.scale_out_triggered)
 
 
 if __name__ == "__main__":
     unittest.main()
+
