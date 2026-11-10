@@ -44,5 +44,17 @@ class RiskAgent:
             if token.bonding_curve_pct > 85.0:
                 return False, f"Rejected: Bonding curve too high ({token.bonding_curve_pct:.1f}%), close to migration dump"
 
+        # 6. Check custom blacklist keywords (symbol & name)
+        symbol_lower = (token.symbol or "").lower()
+        name_lower = (token.name or "").lower()
+        for kw in self.config.blacklist_keywords:
+            if kw and (kw.lower() in symbol_lower or kw.lower() in name_lower):
+                return False, f"Rejected: Matches blacklisted keyword '{kw}'"
+
+        # 7. Check creator blacklist
+        if token.creator and token.creator in self.config.blacklist_creators:
+            return False, f"Rejected: Creator {token.creator[:8]} is blacklisted"
+
         logger.info(f"Token {token.symbol} [{token.mint[:8]}...] PASSED risk evaluation (Score: {safety.score})")
         return True, "Passed all safety checks"
+

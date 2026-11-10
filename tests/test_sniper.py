@@ -105,6 +105,35 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(can_snipe_full)
         self.assertIn("Max open positions reached", reason)
 
+    async def test_blacklist_rejection(self):
+        """Tokens matching blacklisted keywords or creators must be rejected."""
+        # 1. Keyword match
+        token = TokenData(
+            mint="ScamMint123",
+            symbol="SCAMDOGE",
+            name="Super Scam Coin",
+            source=LaunchpadType.PUMPFUN,
+            safety=TokenSafetyScore(score=95, mint_authority_revoked=True, freeze_authority_revoked=True),
+        )
+        passed, reason = await self.risk_agent.evaluate(token)
+        self.assertFalse(passed)
+        self.assertIn("blacklisted keyword", reason)
+
+        # 2. Creator match
+        self.config.blacklist_creators.append("EvilCreatorWallet123")
+        safe_token = TokenData(
+            mint="SafeMint456",
+            symbol="GOOD",
+            name="Good Coin",
+            creator="EvilCreatorWallet123",
+            source=LaunchpadType.PUMPFUN,
+            safety=TokenSafetyScore(score=95, mint_authority_revoked=True, freeze_authority_revoked=True),
+        )
+        passed2, reason2 = await self.risk_agent.evaluate(safe_token)
+        self.assertFalse(passed2)
+        self.assertIn("Creator EvilCrea is blacklisted", reason2)
+
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -19,6 +19,13 @@ class TradeExecutor:
         self.jupiter = jupiter
         self.paper_balance_sol = config.paper_wallet_sol
 
+    def get_public_key(self) -> Optional[str]:
+        """Return base58 public key of configured wallet if available."""
+        if not self.config.solana_private_key:
+            return None
+        kp = self.solana_client.load_keypair(self.config.solana_private_key)
+        return str(kp.pubkey()) if kp else None
+
     async def execute_buy(self, token: TokenData, amount_sol: float) -> Tuple[Optional[Order], Optional[str]]:
         """Execute buy order in paper simulation or live on-chain."""
         order = Order(

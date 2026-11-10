@@ -47,7 +47,7 @@
 <body class="font-sans antialiased selection:bg-accent selection:text-black min-h-screen flex flex-col">
 
   <!-- TOP HEADER -->
-  <header class="border-b border-border1 bg-panel/90 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
+  <header class="border-b border-border1 bg-panel/90 backdrop-blur sticky top-0 z-50 px-6 py-3 flex items-center justify-between">
     <div class="flex items-center gap-4">
       <div class="flex items-center gap-2.5">
         <div class="w-8 h-8 rounded-lg bg-accent/10 border border-accent/40 flex items-center justify-center font-bold text-accent text-lg shadow-[0_0_12px_rgba(47,227,154,0.3)]">
@@ -69,14 +69,29 @@
     </div>
 
     <!-- Actions & Controls -->
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2.5">
       <!-- Quick Snipe Input -->
-      <div class="hidden lg:flex items-center bg-panel2 border border-border2 rounded-lg px-2.5 py-1">
-        <input id="quickMintInput" type="text" placeholder="Paste Solana token mint..." class="bg-transparent text-xs font-mono w-56 text-white focus:outline-none placeholder-dim" />
+      <div class="hidden xl:flex items-center bg-panel2 border border-border2 rounded-lg px-2.5 py-1">
+        <input id="quickMintInput" type="text" placeholder="Paste Solana token mint..." class="bg-transparent text-xs font-mono w-52 text-white focus:outline-none placeholder-dim" />
         <button onclick="handleQuickSnipe()" class="bg-accent hover:bg-emerald-400 text-black font-semibold text-xs px-2.5 py-1 rounded transition">
           Snipe
         </button>
       </div>
+
+      <!-- Sound Toggle -->
+      <button onclick="toggleAudio()" id="audioToggleBtn" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-2.5 py-1.5 rounded-lg text-dim hover:text-white transition flex items-center gap-1.5">
+        <span id="audioIcon">🔊</span> <span class="hidden sm:inline">Audio</span>
+      </button>
+
+      <!-- Wallet Assistant Button -->
+      <button onclick="openWalletModal()" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-2.5 py-1.5 rounded-lg text-dim hover:text-white transition flex items-center gap-1.5">
+        💼 <span class="hidden sm:inline">Wallet</span>
+      </button>
+
+      <!-- Settings Modal Button -->
+      <button onclick="openSettingsModal()" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-2.5 py-1.5 rounded-lg text-dim hover:text-white transition flex items-center gap-1.5">
+        ⚙️ <span class="hidden sm:inline">Settings</span>
+      </button>
 
       <!-- Mode Toggle -->
       <button onclick="toggleMode()" id="modeToggleBtn" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-3 py-1.5 rounded-lg text-dim hover:text-white transition">
@@ -96,34 +111,34 @@
   </header>
 
   <!-- METRICS KPI STRIP -->
-  <section class="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-4 border-b border-border1 bg-panel/40">
-    <div class="bg-panel p-3.5 rounded-xl border border-border1">
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-3.5 border-b border-border1 bg-panel/40">
+    <div class="bg-panel p-3 rounded-xl border border-border1">
       <p class="text-xs font-mono text-dim">WALLET BALANCE</p>
-      <div class="flex items-baseline gap-2 mt-1">
+      <div class="flex items-baseline gap-2 mt-0.5">
         <span class="text-xl font-bold font-mono text-white" id="statBalance">10.000 SOL</span>
         <span class="text-xs text-dim font-mono" id="statBalanceUsd">≈ $1,800.00</span>
       </div>
     </div>
 
-    <div class="bg-panel p-3.5 rounded-xl border border-border1">
+    <div class="bg-panel p-3 rounded-xl border border-border1">
       <p class="text-xs font-mono text-dim">TOTAL REALIZED PNL</p>
-      <div class="flex items-baseline gap-2 mt-1">
+      <div class="flex items-baseline gap-2 mt-0.5">
         <span class="text-xl font-bold font-mono text-accent" id="statPnl">+0.000 SOL</span>
         <span class="text-xs text-accent font-mono" id="statPnlUsd">(+$0.00)</span>
       </div>
     </div>
 
-    <div class="bg-panel p-3.5 rounded-xl border border-border1">
+    <div class="bg-panel p-3 rounded-xl border border-border1">
       <p class="text-xs font-mono text-dim">WIN RATE & TRADES</p>
-      <div class="flex items-baseline gap-2 mt-1">
+      <div class="flex items-baseline gap-2 mt-0.5">
         <span class="text-xl font-bold font-mono text-white" id="statWinRate">0.0%</span>
         <span class="text-xs text-dim font-mono" id="statTradeCount">0 trades closed</span>
       </div>
     </div>
 
-    <div class="bg-panel p-3.5 rounded-xl border border-border1">
+    <div class="bg-panel p-3 rounded-xl border border-border1">
       <p class="text-xs font-mono text-dim">ACTIVE POSITIONS</p>
-      <div class="flex items-baseline gap-2 mt-1">
+      <div class="flex items-baseline gap-2 mt-0.5">
         <span class="text-xl font-bold font-mono text-blueCol" id="statActiveCount">0 / 5</span>
         <span class="text-xs text-dim font-mono">Slots Available</span>
       </div>
@@ -135,12 +150,25 @@
 
     <!-- LEFT COLUMN: LIVE TOKEN RADAR (4 cols) -->
     <div class="lg:col-span-4 flex flex-col bg-panel rounded-xl border border-border1 overflow-hidden h-[760px]">
-      <div class="px-4 py-3 border-b border-border1 flex items-center justify-between bg-panel2">
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-accent animate-ping"></span>
-          <h2 class="text-sm font-bold tracking-wide uppercase">Live Token Radar</h2>
+      <div class="px-4 py-3 border-b border-border1 bg-panel2 space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-accent animate-ping"></span>
+            <h2 class="text-sm font-bold tracking-wide uppercase">Live Token Radar</h2>
+          </div>
+          <span class="text-[11px] font-mono text-dim" id="radarCount">Monitoring</span>
         </div>
-        <span class="text-[11px] font-mono text-dim" id="radarCount">Monitoring</span>
+
+        <!-- Radar Filter & Search Bar -->
+        <div class="flex flex-col gap-2 pt-1">
+          <input id="radarSearchInput" oninput="applyRadarFilters()" type="text" placeholder="Search symbol or mint..." class="bg-panel border border-border1 rounded-lg px-2.5 py-1 text-xs font-mono text-white focus:outline-none focus:border-accent/40 placeholder-dim w-full" />
+          <div class="flex items-center gap-1.5 text-[10px] font-mono" id="radarFilterPills">
+            <button onclick="setRadarFilter('all')" class="px-2 py-0.5 rounded bg-panel2 text-accent font-semibold border border-accent/30" data-filter="all">All</button>
+            <button onclick="setRadarFilter('pumpfun')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="pumpfun">Pump.fun</button>
+            <button onclick="setRadarFilter('raydium')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="raydium">Raydium</button>
+            <button onclick="setRadarFilter('safe')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="safe">Safe (80+)</button>
+          </div>
+        </div>
       </div>
 
       <div class="p-3 flex-1 overflow-y-auto custom-scroll space-y-2.5" id="radarList">
@@ -156,21 +184,21 @@
       <!-- CANDLESTICK CHART STAGE -->
       <div class="bg-panel rounded-xl border border-border1 overflow-hidden flex flex-col h-[400px]">
         <!-- Chart Controls Header -->
-        <div class="px-4 py-2.5 border-b border-border1 bg-panel2 flex flex-wrap items-center justify-between gap-3">
+        <div class="px-4 py-2 border-b border-border1 bg-panel2 flex flex-wrap items-center justify-between gap-2">
           <div class="flex items-center gap-3">
             <div class="w-7 h-7 rounded-lg bg-panel border border-border2 flex items-center justify-center font-bold text-xs uppercase font-mono text-accent" id="chartTokenBadge">
               SOL
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <span class="font-bold text-sm text-white font-mono" id="chartTokenSymbol">TACIS / SOL</span>
+                <span class="font-bold text-sm text-white font-mono" id="chartTokenSymbol">BONK / SOL</span>
                 <span class="text-[10px] font-mono text-dim cursor-pointer hover:text-accent transition" id="chartTokenAddress" onclick="copyActiveMint()">
                   Click to copy mint
                 </span>
               </div>
               <div class="flex items-center gap-2 text-xs font-mono">
-                <span class="text-white font-semibold" id="chartPriceSol">0.000000045 SOL</span>
-                <span class="text-dim" id="chartPriceUsd">≈ $0.0000081</span>
+                <span class="text-white font-semibold" id="chartPriceSol">0.000000033 SOL</span>
+                <span class="text-dim" id="chartPriceUsd">≈ $0.0000027</span>
                 <span class="text-accent text-[11px]" id="chartPriceChange">+0.0%</span>
               </div>
             </div>
@@ -239,13 +267,14 @@
                 <th class="py-2.5 px-4">TOKEN</th>
                 <th class="py-2.5 px-3">ENTRY</th>
                 <th class="py-2.5 px-3">CURRENT</th>
+                <th class="py-2.5 px-3">TARGETS</th>
                 <th class="py-2.5 px-3">PNL</th>
                 <th class="py-2.5 px-4 text-right">ACTION</th>
               </tr>
             </thead>
             <tbody id="positionsTableBody" class="divide-y divide-border1">
               <tr>
-                <td colspan="5" class="py-12 text-center text-dim">
+                <td colspan="6" class="py-12 text-center text-dim">
                   No active open positions. Sniper is scanning for entry signals.
                 </td>
               </tr>
@@ -278,7 +307,7 @@
   </main>
 
   <!-- BOTTOM TERMINAL LOGS -->
-  <footer class="border-t border-border1 bg-panel p-4 flex flex-col space-y-2">
+  <footer class="border-t border-border1 bg-panel p-3.5 flex flex-col space-y-1.5">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="w-2 h-2 rounded bg-accent"></span>
@@ -286,19 +315,234 @@
       </div>
       <button onclick="clearLogs()" class="text-xs font-mono text-dim hover:text-white transition">Clear Logs</button>
     </div>
-    <div class="h-24 bg-black/60 rounded-lg p-2.5 font-mono text-[11px] overflow-y-auto custom-scroll text-dim space-y-1" id="logTerminal">
+    <div class="h-20 bg-black/60 rounded-lg p-2 font-mono text-[11px] overflow-y-auto custom-scroll text-dim space-y-1" id="logTerminal">
       <div>[INIT] MaguraBot connected. Starting event listeners...</div>
     </div>
   </footer>
 
-  <!-- JAVASCRIPT TERMINAL & CANDLESTICK APP -->
+  <!-- SETTINGS MODAL / SLIDE-OVER -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-panel border border-border2 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto custom-scroll p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-border1 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">⚙️</span>
+          <h3 class="font-bold text-base text-white">Sniper Bot Settings</h3>
+        </div>
+        <button onclick="closeSettingsModal()" class="text-dim hover:text-white text-lg font-mono">✕</button>
+      </div>
+
+      <!-- Settings Form -->
+      <div class="space-y-4 text-xs font-mono">
+        <!-- Execution Parameters -->
+        <div class="space-y-2">
+          <h4 class="text-accent font-semibold uppercase tracking-wider text-[11px]">Trading Execution</h4>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-dim mb-1">Buy Amount (SOL)</label>
+              <input id="cfgBuyAmount" type="number" step="0.01" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Max Concurrent Positions</label>
+              <input id="cfgMaxPositions" type="number" min="1" max="20" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Slippage (BPS: 500 = 5%)</label>
+              <input id="cfgSlippage" type="number" step="50" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Min Safety Score (0-100)</label>
+              <input id="cfgMinSafety" type="number" min="0" max="100" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Exit Strategies -->
+        <div class="space-y-2 border-t border-border1 pt-3">
+          <h4 class="text-accent font-semibold uppercase tracking-wider text-[11px]">Automated Exit Rules</h4>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-dim mb-1">Take Profit %</label>
+              <input id="cfgTakeProfit" type="number" step="5" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Stop Loss %</label>
+              <input id="cfgStopLoss" type="number" step="5" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Trailing Stop %</label>
+              <input id="cfgTrailingStop" type="number" step="5" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Webhook Alerts -->
+        <div class="space-y-2 border-t border-border1 pt-3">
+          <h4 class="text-accent font-semibold uppercase tracking-wider text-[11px]">External Notifications</h4>
+          <div class="space-y-2">
+            <div>
+              <label class="block text-dim mb-1">Discord Webhook URL</label>
+              <input id="cfgDiscord" type="text" placeholder="https://discord.com/api/webhooks/..." class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-dim mb-1">Telegram Bot Token</label>
+                <input id="cfgTgToken" type="text" placeholder="123456:ABC-DEF..." class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+              </div>
+              <div>
+                <label class="block text-dim mb-1">Telegram Chat ID</label>
+                <input id="cfgTgChat" type="text" placeholder="-1001234567" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Blacklist Filters -->
+        <div class="space-y-2 border-t border-border1 pt-3">
+          <h4 class="text-accent font-semibold uppercase tracking-wider text-[11px]">Custom Blacklists</h4>
+          <div class="space-y-2">
+            <div>
+              <label class="block text-dim mb-1">Excluded Keywords (comma separated)</label>
+              <input id="cfgBlacklistKeywords" type="text" placeholder="scam, rug, fake, honey, clone" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Excluded Creator Pubkeys (comma separated)</label>
+              <input id="cfgBlacklistCreators" type="text" placeholder="Wallet1, Wallet2..." class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="flex items-center justify-end gap-3 pt-3 border-t border-border1">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-lg border border-border2 text-dim hover:text-white font-mono text-xs transition">
+          Cancel
+        </button>
+        <button onclick="saveSettings()" class="px-5 py-2 rounded-lg bg-accent hover:bg-emerald-400 text-black font-semibold font-mono text-xs transition">
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WALLET ASSISTANT MODAL -->
+  <div id="walletModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-panel border border-border2 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scroll p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-border1 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">💼</span>
+          <h3 class="font-bold text-base text-white">Solana Wallet Assistant</h3>
+        </div>
+        <button onclick="closeWalletModal()" class="text-dim hover:text-white text-lg font-mono">✕</button>
+      </div>
+
+      <div class="space-y-4 text-xs font-mono">
+        <!-- Wallet Status Card -->
+        <div class="bg-panel2 p-3.5 rounded-xl border border-border1 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-dim">Trading Mode</span>
+            <span id="walletModeLabel" class="font-semibold text-accent uppercase">Paper Simulation</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-dim">Active Address</span>
+            <div class="flex items-center gap-2">
+              <span id="walletPubkey" class="text-white font-mono truncate max-w-[200px]">Simulated Paper Wallet</span>
+              <button onclick="copyWalletPubkey()" title="Copy Address" class="text-dim hover:text-accent transition">📋</button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between border-t border-border1 pt-2">
+            <span class="text-dim">Available Balance</span>
+            <div class="flex items-center gap-2">
+              <span id="walletBalanceVal" class="text-white font-bold text-sm">10.0000 SOL</span>
+              <button onclick="fetchWalletInfo()" title="Refresh Balance" class="text-dim hover:text-white transition">🔄</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Keypair Generator Box -->
+        <div class="border border-border1 rounded-xl p-4 space-y-3 bg-panel2/40">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="text-white font-semibold text-xs">Generate Fresh Solana Keypair</h4>
+              <p class="text-[11px] text-dim">Generate a secure cryptographic keypair for live trading.</p>
+            </div>
+            <button onclick="generateFreshKeypair()" class="bg-panel hover:bg-panel2 border border-accent/40 text-accent font-semibold px-3 py-1.5 rounded-lg transition text-xs">
+              Generate
+            </button>
+          </div>
+
+          <div id="generatedKeypairBox" class="hidden space-y-2.5 pt-3 border-t border-border1">
+            <div>
+              <label class="block text-[10px] text-dim mb-0.5">NEW PUBLIC KEY (ADDRESS)</label>
+              <div class="flex items-center gap-1.5 bg-black/60 p-2 rounded border border-border1">
+                <input id="genPubkey" readonly class="w-full bg-transparent text-white text-[11px] focus:outline-none select-all" />
+                <button onclick="copyElementText('genPubkey')" class="text-accent hover:underline text-xs">Copy</button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-[10px] text-dim mb-0.5 text-danger font-semibold">NEW PRIVATE KEY (BASE58 SECRET)</label>
+              <div class="flex items-center gap-1.5 bg-black/60 p-2 rounded border border-danger/40">
+                <input id="genPrivkey" type="password" readonly class="w-full bg-transparent text-white text-[11px] focus:outline-none select-all" />
+                <button onclick="toggleGenPrivkeyVisibility()" class="text-dim hover:text-white text-xs px-1">👁️</button>
+                <button onclick="copyElementText('genPrivkey')" class="text-accent hover:underline text-xs">Copy</button>
+              </div>
+            </div>
+            <div class="text-[11px] text-warn bg-warn/10 p-2.5 rounded-lg border border-warn/30">
+              ⚠️ <strong>Security Notice:</strong> Back up your private key securely. Put it into your <code>.env</code> file as <code>SOLANA_PRIVATE_KEY=...</code> and never share it or commit to Git.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end pt-3 border-t border-border1">
+        <button onclick="closeWalletModal()" class="px-5 py-2 rounded-lg bg-panel2 hover:bg-border1 border border-border2 text-white font-mono text-xs transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION -->
   <script>
     let ws;
     let botRunning = true;
     let botMode = "paper";
-    const recentTokens = [];
+    const allRecentTokens = [];
+    let radarFilter = "all";
     const openPositions = [];
     const closedTrades = [];
+
+    // Audio synthesizer
+    let audioEnabled = true;
+    let audioCtx = null;
+
+    function playTone(freqs, times, type = 'sine') {
+      if (!audioEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        let startTime = audioCtx.currentTime;
+        freqs.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, startTime);
+          gain.gain.setValueAtTime(0.06, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + times[idx]);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + times[idx]);
+          startTime += times[idx];
+        });
+      } catch (e) {}
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      document.getElementById("audioIcon").innerText = audioEnabled ? "🔊" : "🔇";
+      addLog(`Audio alerts: ${audioEnabled ? 'ENABLED' : 'MUTED'}`);
+      if (audioEnabled) playTone([523.25, 783.99], [0.1, 0.15], 'triangle');
+    }
 
     // Chart variables
     let chart, candleSeries, volumeSeries;
@@ -308,7 +552,6 @@
     let chartMode = "candles";
     let entryPriceLine, tpPriceLine, slPriceLine;
 
-    // Initialize TradingView Lightweight Charts
     function initChart() {
       const container = document.getElementById("candleChartContainer");
       if (!container) return;
@@ -342,7 +585,6 @@
         },
       });
 
-      // Candlestick Series
       candleSeries = chart.addCandlestickSeries({
         upColor: '#2FE39A',
         downColor: '#FF5F6D',
@@ -356,7 +598,6 @@
         },
       });
 
-      // Volume Series
       volumeSeries = chart.addHistogramSeries({
         color: '#2FE39A',
         priceFormat: { type: 'volume' },
@@ -364,7 +605,6 @@
         scaleMargins: { top: 0.82, bottom: 0 },
       });
 
-      // Crosshair move listener for OHLCV legend
       chart.subscribeCrosshairMove((param) => {
         if (!param || !param.time || !param.seriesData) return;
         const data = param.seriesData.get(candleSeries);
@@ -378,7 +618,6 @@
         }
       });
 
-      // Responsive Resize
       const ro = new ResizeObserver(() => {
         if (chart && container) {
           chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
@@ -386,7 +625,6 @@
       });
       ro.observe(container);
 
-      // Load initial candles
       loadTokenCandles(activeMint, activeSymbol);
     }
 
@@ -409,7 +647,6 @@
         const candles = data.candles || [];
 
         if (candles.length > 0) {
-          // Format for lightweight-charts
           const chartCandles = candles.map(c => ({
             time: c.time,
             open: c.open,
@@ -446,19 +683,17 @@
     }
 
     function updateChartOverlayLines(mint) {
-      // Clear old price lines
       if (entryPriceLine && candleSeries) candleSeries.removePriceLine(entryPriceLine);
       if (tpPriceLine && candleSeries) candleSeries.removePriceLine(tpPriceLine);
       if (slPriceLine && candleSeries) candleSeries.removePriceLine(slPriceLine);
 
-      // Check if this token is currently in active positions
       const pos = openPositions.find(p => p.token_mint === mint);
       if (pos && candleSeries) {
         entryPriceLine = candleSeries.createPriceLine({
           price: pos.buy_price_sol,
           color: '#3BA7FF',
           lineWidth: 2,
-          lineStyle: 1, // Dotted
+          lineStyle: 1,
           axisLabelVisible: true,
           title: `ENTRY (${pos.buy_price_sol.toFixed(8)})`,
         });
@@ -467,7 +702,7 @@
           price: pos.take_profit_price,
           color: '#2FE39A',
           lineWidth: 2,
-          lineStyle: 2, // Dashed
+          lineStyle: 2,
           axisLabelVisible: true,
           title: `TP TARGET (${pos.take_profit_price.toFixed(8)})`,
         });
@@ -476,7 +711,7 @@
           price: pos.stop_loss_price,
           color: '#FF5F6D',
           lineWidth: 2,
-          lineStyle: 2, // Dashed
+          lineStyle: 2,
           axisLabelVisible: true,
           title: `SL TARGET (${pos.stop_loss_price.toFixed(8)})`,
         });
@@ -486,11 +721,9 @@
     function setChartTimeframe(tf) {
       activeTimeframe = tf;
       document.querySelectorAll("#timeframeGroup button").forEach(b => {
-        if (b.dataset.tf === tf) {
-          b.className = "px-2 py-1 rounded bg-panel2 text-accent font-semibold transition";
-        } else {
-          b.className = "px-2 py-1 rounded text-dim hover:text-white transition";
-        }
+        b.className = b.dataset.tf === tf 
+          ? "px-2 py-1 rounded bg-panel2 text-accent font-semibold transition"
+          : "px-2 py-1 rounded text-dim hover:text-white transition";
       });
       loadTokenCandles(activeMint, activeSymbol);
     }
@@ -544,86 +777,45 @@
       }
     }
 
-    // WebSocket Integration
-    function connectWebSocket() {
-      const loc = window.location;
-      const wsUrl = (loc.protocol === "https:" ? "wss://" : "ws://") + loc.host + "/ws";
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        document.getElementById("wsIndicator").className = "inline-block w-2.5 h-2.5 rounded-full bg-accent animate-pulse";
-        document.getElementById("wsStatus").innerText = "CONNECTED";
-        addLog("WebSocket connected to sniper engine.");
-      };
-
-      ws.onclose = () => {
-        document.getElementById("wsIndicator").className = "inline-block w-2.5 h-2.5 rounded-full bg-danger";
-        document.getElementById("wsStatus").innerText = "RECONNECTING...";
-        setTimeout(connectWebSocket, 3000);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          handleBotMessage(msg);
-        } catch (e) {
-          console.error("Failed to parse WS msg", e);
-        }
-      };
+    // Radar Filter Logic
+    function setRadarFilter(f) {
+      radarFilter = f;
+      document.querySelectorAll("#radarFilterPills button").forEach(b => {
+        b.className = b.dataset.filter === f
+          ? "px-2 py-0.5 rounded bg-panel2 text-accent font-semibold border border-accent/30"
+          : "px-2 py-0.5 rounded text-dim hover:text-white border border-border1";
+      });
+      applyRadarFilters();
     }
 
-    function handleBotMessage(msg) {
-      if (msg.event === "snapshot") {
-        updateMetrics(msg.metrics);
-        renderPositions(msg.positions || []);
-        renderTrades(msg.trades || []);
-        if (msg.recent_tokens && msg.recent_tokens.length > 0) {
-          msg.recent_tokens.forEach(addTokenCard);
-          // Focus chart on the latest token if not set
-          if (!activeMint && msg.recent_tokens[0]) {
-            loadTokenCandles(msg.recent_tokens[0].mint, msg.recent_tokens[0].symbol);
-          }
-        }
-      } else if (msg.event === "token_discovered") {
-        addTokenCard(msg.data);
-      } else if (msg.event === "order_executed") {
-        addLog(`ORDER EXECUTED: ${msg.data.order_type} ${msg.data.symbol} (${msg.data.amount_sol} SOL)`, "accent");
-        fetchPositions();
-      } else if (msg.event === "position_updated") {
-        fetchPositions();
-        // If this is the active charted token, update the candle tick!
-        if (msg.data.token_mint === activeMint && candleSeries) {
-          const nowSec = Math.floor(Date.now() / 1000);
-          candleSeries.update({
-            time: nowSec,
-            open: msg.data.current_price_sol,
-            high: Math.max(msg.data.current_price_sol, msg.data.peak_price_sol || msg.data.current_price_sol),
-            low: msg.data.current_price_sol * 0.99,
-            close: msg.data.current_price_sol,
-          });
-        }
-      } else if (msg.event === "position_closed") {
-        addLog(`CLOSED: ${msg.message}`, "accent");
-        fetchPositions();
-        fetchTrades();
-        fetchStatus();
-      } else if (msg.event === "bot_state_changed") {
-        botRunning = msg.data.running;
-        botMode = msg.data.mode;
-        updateControls();
-      }
-    }
-
-    function addTokenCard(token) {
+    function applyRadarFilters() {
+      const query = (document.getElementById("radarSearchInput").value || "").toLowerCase();
       const radar = document.getElementById("radarList");
-      if (recentTokens.length === 0) radar.innerHTML = "";
-      recentTokens.unshift(token);
-      if (recentTokens.length > 50) recentTokens.pop();
+      radar.innerHTML = "";
 
+      const filtered = allRecentTokens.filter(t => {
+        if (query && !t.symbol.toLowerCase().includes(query) && !t.mint.toLowerCase().includes(query) && !t.name.toLowerCase().includes(query)) {
+          return false;
+        }
+        if (radarFilter === "pumpfun" && t.source !== "pumpfun") return false;
+        if (radarFilter === "raydium" && t.source !== "raydium") return false;
+        if (radarFilter === "safe" && (t.safety?.score || 0) < 80) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        radar.innerHTML = `<div class="text-center py-16 text-dim font-mono text-xs">No tokens match filter criteria</div>`;
+        return;
+      }
+
+      filtered.forEach(t => renderSingleTokenCard(t, radar));
+      document.getElementById("radarCount").innerText = `${filtered.length} Discovered`;
+    }
+
+    function renderSingleTokenCard(token, targetEl) {
       const card = document.createElement("div");
       card.className = "bg-panel2 p-3 rounded-lg border border-border1 hover:border-accent/40 transition flex items-center justify-between cursor-pointer group";
       card.onclick = (e) => {
-        // Prevent click if clicking snipe button
         if (e.target.tagName === 'BUTTON') return;
         loadTokenCandles(token.mint, token.symbol);
       };
@@ -664,8 +856,89 @@
         </div>
       `;
 
-      radar.insertBefore(card, radar.firstChild);
-      document.getElementById("radarCount").innerText = `${recentTokens.length} Discovered`;
+      targetEl.appendChild(card);
+    }
+
+    function addTokenCard(token) {
+      allRecentTokens.unshift(token);
+      if (allRecentTokens.length > 80) allRecentTokens.pop();
+      applyRadarFilters();
+    }
+
+    // WebSocket Integration
+    function connectWebSocket() {
+      const loc = window.location;
+      const wsUrl = (loc.protocol === "https:" ? "wss://" : "ws://") + loc.host + "/ws";
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById("wsIndicator").className = "inline-block w-2.5 h-2.5 rounded-full bg-accent animate-pulse";
+        document.getElementById("wsStatus").innerText = "CONNECTED";
+        addLog("WebSocket connected to sniper engine.");
+      };
+
+      ws.onclose = () => {
+        document.getElementById("wsIndicator").className = "inline-block w-2.5 h-2.5 rounded-full bg-danger";
+        document.getElementById("wsStatus").innerText = "RECONNECTING...";
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleBotMessage(msg);
+        } catch (e) {
+          console.error("Failed to parse WS msg", e);
+        }
+      };
+    }
+
+    function handleBotMessage(msg) {
+      if (msg.event === "snapshot") {
+        updateMetrics(msg.metrics);
+        renderPositions(msg.positions || []);
+        renderTrades(msg.trades || []);
+        if (msg.recent_tokens && msg.recent_tokens.length > 0) {
+          msg.recent_tokens.forEach(t => allRecentTokens.push(t));
+          applyRadarFilters();
+          if (msg.recent_tokens[0]) {
+            loadTokenCandles(msg.recent_tokens[0].mint, msg.recent_tokens[0].symbol);
+          }
+        }
+      } else if (msg.event === "token_discovered") {
+        addTokenCard(msg.data);
+      } else if (msg.event === "order_executed") {
+        playTone([523.25, 659.25, 783.99], [0.08, 0.08, 0.15], 'triangle'); // Snipe chime
+        addLog(`ORDER EXECUTED: ${msg.data.order_type} ${msg.data.symbol} (${msg.data.amount_sol} SOL)`, "accent");
+        fetchPositions();
+      } else if (msg.event === "position_updated") {
+        fetchPositions();
+        if (msg.data.token_mint === activeMint && candleSeries) {
+          const nowSec = Math.floor(Date.now() / 1000);
+          candleSeries.update({
+            time: nowSec,
+            open: msg.data.current_price_sol,
+            high: Math.max(msg.data.current_price_sol, msg.data.peak_price_sol || msg.data.current_price_sol),
+            low: msg.data.current_price_sol * 0.99,
+            close: msg.data.current_price_sol,
+          });
+        }
+      } else if (msg.event === "position_closed") {
+        const isWin = msg.data.pnl_pct >= 0;
+        if (isWin) {
+          playTone([587.33, 783.99, 1046.50], [0.1, 0.1, 0.25], 'sine'); // Victory chime
+        } else {
+          playTone([440, 349.23, 293.66], [0.12, 0.12, 0.2], 'sawtooth'); // Stop loss tone
+        }
+        addLog(`CLOSED: ${msg.message}`, "accent");
+        fetchPositions();
+        fetchTrades();
+        fetchStatus();
+      } else if (msg.event === "bot_state_changed") {
+        botRunning = msg.data.running;
+        botMode = msg.data.mode;
+        updateControls();
+      }
     }
 
     function renderPositions(positions) {
@@ -677,7 +950,7 @@
       document.getElementById("statActiveCount").innerText = `${positions.length} / 5`;
 
       if (!positions || positions.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-dim">No active open positions. Sniper is scanning for entry signals.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-dim">No active open positions. Sniper is scanning for entry signals.</td></tr>`;
         return;
       }
 
@@ -697,6 +970,10 @@
             </td>
             <td class="py-3 px-3 text-dim">${p.buy_price_sol.toFixed(8)} SOL</td>
             <td class="py-3 px-3 text-white font-semibold">${p.current_price_sol.toFixed(8)} SOL</td>
+            <td class="py-3 px-3 text-[11px] text-dim font-mono">
+              <span class="text-accent block">TP: +50%</span>
+              <span class="text-danger block">SL: -20%</span>
+            </td>
             <td class="py-3 px-3">
               <span class="${pnlColor} font-bold">${pnlSign}${p.pnl_pct.toFixed(1)}%</span>
               <span class="text-[10px] text-dim block">${pnlSign}${p.pnl_sol.toFixed(4)} SOL</span>
@@ -854,6 +1131,128 @@
       btn.className = botRunning
         ? "bg-accent/10 border border-accent/40 text-accent hover:bg-accent hover:text-black font-semibold text-xs px-3.5 py-1.5 rounded-lg transition"
         : "bg-warn/10 border border-warn/40 text-warn hover:bg-warn hover:text-black font-semibold text-xs px-3.5 py-1.5 rounded-lg transition";
+    }
+
+    // Settings Modal handlers
+    async function openSettingsModal() {
+      try {
+        const res = await fetch("/api/config");
+        const cfg = await res.json();
+        document.getElementById("cfgBuyAmount").value = cfg.buy_amount_sol || 0.05;
+        document.getElementById("cfgMaxPositions").value = cfg.max_positions || 5;
+        document.getElementById("cfgSlippage").value = cfg.slippage_bps || 500;
+        document.getElementById("cfgMinSafety").value = cfg.min_safety_score || 70;
+        document.getElementById("cfgTakeProfit").value = cfg.take_profit_pct || 50;
+        document.getElementById("cfgStopLoss").value = cfg.stop_loss_pct || 20;
+        document.getElementById("cfgTrailingStop").value = cfg.trailing_stop_pct || 15;
+        document.getElementById("cfgDiscord").value = cfg.discord_webhook_url || "";
+        document.getElementById("cfgTgToken").value = cfg.telegram_bot_token || "";
+        document.getElementById("cfgTgChat").value = cfg.telegram_chat_id || "";
+        document.getElementById("cfgBlacklistKeywords").value = (cfg.blacklist_keywords || []).join(", ");
+        document.getElementById("cfgBlacklistCreators").value = (cfg.blacklist_creators || []).join(", ");
+      } catch (e) {}
+      document.getElementById("settingsModal").classList.remove("hidden");
+    }
+
+    function closeSettingsModal() {
+      document.getElementById("settingsModal").classList.add("hidden");
+    }
+
+    async function saveSettings() {
+      const kwRaw = document.getElementById("cfgBlacklistKeywords").value;
+      const crRaw = document.getElementById("cfgBlacklistCreators").value;
+      const kwList = kwRaw.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+      const crList = crRaw.split(",").map(s => s.trim()).filter(Boolean);
+
+      const payload = {
+        buy_amount_sol: parseFloat(document.getElementById("cfgBuyAmount").value) || 0.05,
+        max_positions: parseInt(document.getElementById("cfgMaxPositions").value) || 5,
+        slippage_bps: parseInt(document.getElementById("cfgSlippage").value) || 500,
+        min_safety_score: parseInt(document.getElementById("cfgMinSafety").value) || 70,
+        take_profit_pct: parseFloat(document.getElementById("cfgTakeProfit").value) || 50,
+        stop_loss_pct: parseFloat(document.getElementById("cfgStopLoss").value) || 20,
+        trailing_stop_pct: parseFloat(document.getElementById("cfgTrailingStop").value) || 15,
+        discord_webhook_url: document.getElementById("cfgDiscord").value.trim() || null,
+        telegram_bot_token: document.getElementById("cfgTgToken").value.trim() || null,
+        telegram_chat_id: document.getElementById("cfgTgChat").value.trim() || null,
+        blacklist_keywords: kwList,
+        blacklist_creators: crList,
+      };
+
+      try {
+        const res = await fetch("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          addLog("Settings updated successfully!", "accent");
+          closeSettingsModal();
+        }
+      } catch (e) {
+        addLog(`Failed to save settings: ${e}`, "danger");
+      }
+    }
+
+    // Wallet Assistant Modal handlers
+    async function openWalletModal() {
+      document.getElementById("walletModal").classList.remove("hidden");
+      await fetchWalletInfo();
+    }
+
+    function closeWalletModal() {
+      document.getElementById("walletModal").classList.add("hidden");
+    }
+
+    async function fetchWalletInfo() {
+      try {
+        const res = await fetch("/api/wallet/info");
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById("walletModeLabel").innerText = data.mode === "live" ? "SOLANA MAINNET" : "PAPER SIMULATION";
+          document.getElementById("walletModeLabel").className = data.mode === "live" ? "font-semibold text-danger uppercase" : "font-semibold text-accent uppercase";
+          document.getElementById("walletPubkey").innerText = data.public_key;
+          document.getElementById("walletBalanceVal").innerText = `${data.balance_sol.toFixed(4)} SOL`;
+        }
+      } catch (e) {
+        console.error("Error fetching wallet info:", e);
+      }
+    }
+
+    async function generateFreshKeypair() {
+      try {
+        const res = await fetch("/api/wallet/generate", { method: "POST" });
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById("genPubkey").value = data.public_key;
+          document.getElementById("genPrivkey").value = data.private_key;
+          document.getElementById("generatedKeypairBox").classList.remove("hidden");
+          addLog("Fresh Solana Keypair generated successfully!", "accent");
+        }
+      } catch (e) {
+        addLog(`Failed to generate keypair: ${e}`, "danger");
+      }
+    }
+
+    function toggleGenPrivkeyVisibility() {
+      const input = document.getElementById("genPrivkey");
+      input.type = input.type === "password" ? "text" : "password";
+    }
+
+    function copyWalletPubkey() {
+      const text = document.getElementById("walletPubkey").innerText;
+      if (text && !text.includes("Simulated")) {
+        navigator.clipboard.writeText(text);
+        addLog(`Copied wallet address: ${text.slice(0, 8)}...`, "accent");
+      }
+    }
+
+    function copyElementText(elemId) {
+      const elem = document.getElementById(elemId);
+      if (elem && elem.value) {
+        navigator.clipboard.writeText(elem.value);
+        addLog(`Copied ${elemId === 'genPubkey' ? 'Public Key' : 'Private Key'} to clipboard!`, "accent");
+      }
     }
 
     function addLog(text, level = "normal") {

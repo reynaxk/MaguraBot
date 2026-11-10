@@ -44,6 +44,26 @@ class TestMaguraBotAPI(unittest.TestCase):
         self.assertIn("MAGURABOT", res.text)
         self.assertIn("Solana Memecoin Sniper", res.text)
 
+    def test_wallet_and_analytics_endpoints(self):
+        # Wallet info
+        res_wallet = self.client.get("/api/wallet/info")
+        self.assertEqual(res_wallet.status_code, 200)
+        self.assertIn("balance_sol", res_wallet.json())
+
+        # Generate wallet
+        res_gen = self.client.post("/api/wallet/generate")
+        self.assertEqual(res_gen.status_code, 200)
+        data = res_gen.json()
+        self.assertTrue(len(data["public_key"]) > 30)
+        self.assertTrue(len(data["private_key"]) > 30)
+
+        # Analytics
+        res_analytics = self.client.get("/api/analytics")
+        self.assertEqual(res_analytics.status_code, 200)
+        self.assertIn("win_rate_pct", res_analytics.json())
+        self.assertIn("total_realized_pnl_sol", res_analytics.json())
+
+
 
 if __name__ == "__main__":
     unittest.main()

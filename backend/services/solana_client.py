@@ -96,3 +96,10 @@ class SolanaClient:
         except Exception as e:
             logger.error(f"Failed to parse keypair: {e}")
             return None
+
+    @staticmethod
+    def generate_keypair() -> tuple[str, str]:
+        """Generate a fresh Solana keypair, returning (public_key, private_key_base58)."""
+        kp = Keypair()
+        return str(kp.pubkey()), str(kp)
+

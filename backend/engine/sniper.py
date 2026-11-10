@@ -15,6 +15,7 @@ from backend.models.token import TokenData
 from backend.services.solana_client import SolanaClient
 from backend.services.security import SecurityService
 from backend.services.jupiter import JupiterService
+from backend.services.alerts import AlertService
 from backend.engine.executor import TradeExecutor
 from backend.engine.position_tracker import PositionTracker
 from backend.agents.discovery_agent import DiscoveryAgent
@@ -32,6 +33,11 @@ class SniperEngine:
         self.solana_client = SolanaClient(self.config.solana_rpc_url)
         self.security = SecurityService(self.solana_client)
         self.jupiter = JupiterService()
+        self.alerts = AlertService(
+            telegram_bot_token=self.config.telegram_bot_token,
+            telegram_chat_id=self.config.telegram_chat_id,
+            discord_webhook_url=self.config.discord_webhook_url,
+        )
         self.executor = TradeExecutor(self.config, self.solana_client, self.jupiter)
         
         # Position Tracker
@@ -90,6 +96,7 @@ class SniperEngine:
         await self.solana_client.close()
         await self.security.close()
         await self.jupiter.close()
+        await self.alerts.close()
         
         self.broadcast(
             EventType.BOT_STATE_CHANGED,
@@ -162,6 +169,11 @@ class SniperEngine:
         self.tracker.add_position(pos)
         self.broadcast(EventType.ORDER_EXECUTED, order.model_dump())
         self.broadcast(EventType.POSITION_UPDATED, pos.model_dump())
+        asyncio.create_task(
+            self.alerts.send_snipe_alert(
+                pos.symbol, pos.token_mint, pos.sol_invested, self.config.mode.value
+            )
+        )
 
     async def _handle_auto_exit(self, position: Position, reason: ExitReason):
         logger.info(f"Auto-exit triggered for {position.symbol}: {reason.value}")
@@ -203,6 +215,11 @@ class SniperEngine:
             EventType.POSITION_CLOSED,
             pos.model_dump(),
             f"Closed {pos.symbol} ({reason.value}): PnL {pos.pnl_pct:+.1f}% ({pos.pnl_sol:+.4f} SOL)",
+        )
+        asyncio.create_task(
+            self.alerts.send_exit_alert(
+                pos.symbol, pos.pnl_pct, pos.pnl_sol, reason.value, self.config.mode.value
+            )
         )
         return True
 

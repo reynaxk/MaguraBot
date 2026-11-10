@@ -40,3 +40,14 @@ class BotConfig(BaseModel):
     
     # Simulated initial paper wallet
     paper_wallet_sol: float = 10.0
+    
+    # Notifications (Optional Webhooks)
+    discord_webhook_url: Optional[str] = None
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+    
+    # Custom Blacklists
+    blacklist_keywords: list[str] = Field(default_factory=lambda: ["scam", "rug", "test", "fake", "honey"])
+    blacklist_creators: list[str] = Field(default_factory=list)
+
+
