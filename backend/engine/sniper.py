@@ -16,6 +16,7 @@ from backend.services.solana_client import SolanaClient
 from backend.services.security import SecurityService
 from backend.services.jupiter import JupiterService
 from backend.services.alerts import AlertService
+from backend.services.jito import JitoService
 from backend.engine.executor import TradeExecutor
 from backend.engine.position_tracker import PositionTracker
 from backend.agents.discovery_agent import DiscoveryAgent
@@ -33,12 +34,13 @@ class SniperEngine:
         self.solana_client = SolanaClient(self.config.solana_rpc_url)
         self.security = SecurityService(self.solana_client)
         self.jupiter = JupiterService()
+        self.jito = JitoService()
         self.alerts = AlertService(
             telegram_bot_token=self.config.telegram_bot_token,
             telegram_chat_id=self.config.telegram_chat_id,
             discord_webhook_url=self.config.discord_webhook_url,
         )
-        self.executor = TradeExecutor(self.config, self.solana_client, self.jupiter)
+        self.executor = TradeExecutor(self.config, self.solana_client, self.jupiter, self.jito)
         
         # Position Tracker
         self.tracker = PositionTracker(self.config, self._handle_auto_exit)
@@ -96,6 +98,7 @@ class SniperEngine:
         await self.solana_client.close()
         await self.security.close()
         await self.jupiter.close()
+        await self.jito.close()
         await self.alerts.close()
         
         self.broadcast(
@@ -116,14 +119,28 @@ class SniperEngine:
         asyncio.create_task(self._process_token(token))
 
     async def _process_token(self, token: TokenData):
-        # 1. Check trading limits and cooldown
+        # 0. Check Auto-Snipe toggle
+        if not self.config.auto_snipe:
+            logger.debug(f"Auto-snipe is paused. {token.symbol} will only be monitored on radar.")
+            return
+
+        # 1. Check daily loss circuit breaker
+        total_pnl = sum(p.pnl_sol for p in self.closed_trades)
+        if total_pnl < -abs(self.config.max_daily_loss_sol):
+            logger.warning(
+                f"Circuit Breaker Triggered: Total realized loss ({total_pnl:.4f} SOL) "
+                f"exceeds max daily loss ({self.config.max_daily_loss_sol} SOL). Auto-sniping suspended."
+            )
+            return
+
+        # 2. Check trading limits and cooldown
         open_count = len([p for p in self.positions.values() if p.status == PositionStatus.OPEN])
         can_trade, reason = self.trade_agent.can_snipe(token, open_count)
         if not can_trade:
             logger.debug(f"Skipping {token.symbol}: {reason}")
             return
 
-        # 2. Multi-factor risk screening
+        # 3. Multi-factor risk screening
         passed, risk_reason = await self.risk_agent.evaluate(token)
         if not passed:
             logger.info(f"Rug Filter [{token.symbol}]: {risk_reason}")
@@ -249,6 +266,8 @@ class SniperEngine:
         return {
             "mode": self.config.mode.value,
             "is_running": self.is_running,
+            "auto_snipe": self.config.auto_snipe,
+            "use_jito": self.config.use_jito,
             "open_positions_count": len(open_pos),
             "total_trades": len(self.closed_trades),
             "win_rate_pct": round(win_rate, 1),

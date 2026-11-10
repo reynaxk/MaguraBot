@@ -84,6 +84,7 @@ async def get_config():
 
 class ConfigUpdateRequest(BaseModel):
     mode: Optional[BotMode] = None
+    auto_snipe: Optional[bool] = None
     buy_amount_sol: Optional[float] = None
     max_positions: Optional[int] = None
     slippage_bps: Optional[int] = None
@@ -91,6 +92,10 @@ class ConfigUpdateRequest(BaseModel):
     stop_loss_pct: Optional[float] = None
     trailing_stop_pct: Optional[float] = None
     min_safety_score: Optional[int] = None
+    max_daily_loss_sol: Optional[float] = None
+    use_jito: Optional[bool] = None
+    jito_tip_sol: Optional[float] = None
+    solana_rpc_url: Optional[str] = None
     enable_pumpfun: Optional[bool] = None
     enable_raydium: Optional[bool] = None
     discord_webhook_url: Optional[str] = None
@@ -107,6 +112,8 @@ async def update_config(req: ConfigUpdateRequest):
         setattr(engine.config, k, v)
     engine.executor.config = engine.config
     engine.tracker.config = engine.config
+    if "solana_rpc_url" in updates:
+        engine.solana_client.rpc_url = updates["solana_rpc_url"]
     if "discord_webhook_url" in updates:
         engine.alerts.discord_webhook_url = updates["discord_webhook_url"]
     if "telegram_bot_token" in updates:
@@ -216,6 +223,19 @@ async def generate_wallet():
         "private_key": priv,
         "note": "Save your private key securely. Never share your secret key with anyone."
     }
+
+
+@app.get("/api/network/latency")
+async def get_network_latency():
+    ms = await engine.solana_client.get_latency_ms()
+    return {
+        "rpc_url": engine.config.solana_rpc_url,
+        "latency_ms": ms,
+        "healthy": ms > 0 and ms < 2000,
+        "mode": engine.config.mode.value,
+        "use_jito": engine.config.use_jito,
+    }
+
 
 
 

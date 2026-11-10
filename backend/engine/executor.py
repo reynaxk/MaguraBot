@@ -8,15 +8,23 @@ from backend.models.order import BotMode, Order, OrderType, OrderStatus
 from backend.models.token import TokenData
 from backend.services.jupiter import JupiterService, WSOL_MINT
 from backend.services.solana_client import SolanaClient
+from backend.services.jito import JitoService
 
 logger = logging.getLogger("MaguraBot.Executor")
 
 
 class TradeExecutor:
-    def __init__(self, config: BotConfig, solana_client: SolanaClient, jupiter: JupiterService):
+    def __init__(
+        self,
+        config: BotConfig,
+        solana_client: SolanaClient,
+        jupiter: JupiterService,
+        jito: Optional[JitoService] = None,
+    ):
         self.config = config
         self.solana_client = solana_client
         self.jupiter = jupiter
+        self.jito = jito or JitoService()
         self.paper_balance_sol = config.paper_wallet_sol
 
     def get_public_key(self) -> Optional[str]:
@@ -168,7 +176,15 @@ class TradeExecutor:
 
         # 3. Sign & Broadcast transaction
         try:
-            tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+            if self.config.use_jito:
+                logger.info(f"Submitting buy transaction via Jito MEV Bundle with {self.config.jito_tip_sol} SOL tip...")
+                tx_sig = await self.jito.send_bundle([raw_tx_b64])
+                if not tx_sig:
+                    # Fallback to direct RPC
+                    tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+            else:
+                tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+
             if tx_sig:
                 order.status = OrderStatus.FILLED
                 order.tx_hash = tx_sig
@@ -227,7 +243,14 @@ class TradeExecutor:
             order.error_message = err
             return order, err
 
-        tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+        if self.config.use_jito:
+            logger.info(f"Submitting sell transaction via Jito MEV Bundle with {self.config.jito_tip_sol} SOL tip...")
+            tx_sig = await self.jito.send_bundle([raw_tx_b64])
+            if not tx_sig:
+                tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+        else:
+            tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+
         if tx_sig:
             order.status = OrderStatus.FILLED
             order.tx_hash = tx_sig

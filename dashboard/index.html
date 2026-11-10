@@ -66,6 +66,11 @@
         <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent animate-pulse" id="wsIndicator"></span>
         <span class="text-dim" id="wsStatus">LIVE WEBSOCKET</span>
       </div>
+
+      <div class="hidden lg:flex items-center gap-2 pl-3 border-l border-border1 font-mono text-xs">
+        <span class="inline-block w-2 h-2 rounded-full bg-accent" id="rpcPingDot"></span>
+        <span class="text-dim" id="rpcPingText">RPC: --ms</span>
+      </div>
     </div>
 
     <!-- Actions & Controls -->
@@ -77,6 +82,11 @@
           Snipe
         </button>
       </div>
+
+      <!-- Auto Snipe Toggle -->
+      <button onclick="toggleAutoSnipe()" id="autoSnipeBtn" class="bg-accent/10 border border-accent/40 text-accent hover:bg-accent hover:text-black font-mono text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 font-semibold">
+        🎯 <span id="autoSnipeText">Auto: ON</span>
+      </button>
 
       <!-- Sound Toggle -->
       <button onclick="toggleAudio()" id="audioToggleBtn" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-2.5 py-1.5 rounded-lg text-dim hover:text-white transition flex items-center gap-1.5">
@@ -255,6 +265,9 @@
             <button onclick="switchTableTab('trades')" id="tabTradesBtn" class="text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1">
               Completed Trades (<span id="closedCount">0</span>)
             </button>
+            <button onclick="switchTableTab('analytics')" id="tabAnalyticsBtn" class="text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1">
+              Analytics & Win Rate
+            </button>
           </div>
           <span class="text-xs text-dim font-mono">Click any row to focus candlestick chart</span>
         </div>
@@ -300,6 +313,44 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Analytics & Win Rate View -->
+        <div id="analyticsView" class="hidden flex-1 overflow-y-auto custom-scroll p-4">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div class="bg-panel2 p-3.5 rounded-xl border border-border1">
+              <span class="text-dim text-[11px] block">WIN RATE</span>
+              <div class="text-xl font-bold text-accent font-mono mt-1" id="anWinRate">0.0%</div>
+              <div class="w-full bg-panel rounded-full h-1.5 mt-2 overflow-hidden border border-border1">
+                <div id="anWinRateBar" class="bg-accent h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+              </div>
+              <span class="text-[10px] text-dim font-mono mt-1.5 block" id="anWinLossRatio">0 Wins / 0 Losses</span>
+            </div>
+
+            <div class="bg-panel2 p-3.5 rounded-xl border border-border1">
+              <span class="text-dim text-[11px] block">TOTAL REALIZED PNL</span>
+              <div class="text-xl font-bold text-white font-mono mt-1" id="anTotalPnl">+0.0000 SOL</div>
+              <span class="text-[11px] text-dim font-mono block mt-2" id="anProfitFactor">Profit Factor: 0.00</span>
+            </div>
+
+            <div class="bg-panel2 p-3.5 rounded-xl border border-border1">
+              <span class="text-dim text-[11px] block">AVERAGE WIN / LOSS</span>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-xs text-accent font-mono font-bold" id="anAvgWin">+0.0%</span>
+                <span class="text-xs text-danger font-mono font-bold" id="anAvgLoss">-0.0%</span>
+              </div>
+              <span class="text-[10px] text-dim font-mono mt-2 block">Risk/Reward target: 2.5 : 1</span>
+            </div>
+
+            <div class="bg-panel2 p-3.5 rounded-xl border border-border1">
+              <span class="text-dim text-[11px] block">MEV & EXECUTION</span>
+              <div class="flex items-center gap-1.5 mt-1">
+                <span class="w-2 h-2 rounded-full bg-accent" id="anMevDot"></span>
+                <span class="text-xs text-white font-mono font-semibold" id="anMevStatus">Jito Bundles: Ready</span>
+              </div>
+              <span class="text-[10px] text-dim font-mono mt-2 block" id="anCircuitBreaker">Circuit Breaker: Active (1.0 SOL)</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -392,6 +443,27 @@
                 <label class="block text-dim mb-1">Telegram Chat ID</label>
                 <input id="cfgTgChat" type="text" placeholder="-1001234567" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Jito MEV & Anti-Frontrun -->
+        <div class="space-y-2 border-t border-border1 pt-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-accent font-semibold uppercase tracking-wider text-[11px]">Jito MEV Protection (Bypass Mempool)</h4>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input id="cfgUseJito" type="checkbox" class="accent-accent" />
+              <span class="text-[11px] text-white font-semibold">Enable Jito Bundles</span>
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-dim mb-1">Jito Tip Amount (SOL)</label>
+              <input id="cfgJitoTip" type="number" step="0.0005" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Max Daily Loss (SOL Circuit Breaker)</label>
+              <input id="cfgMaxDailyLoss" type="number" step="0.1" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
             </div>
           </div>
         </div>
@@ -761,19 +833,29 @@
     function switchTableTab(tab) {
       const pView = document.getElementById("positionsView");
       const tView = document.getElementById("tradesView");
+      const aView = document.getElementById("analyticsView");
       const pBtn = document.getElementById("tabPositionsBtn");
       const tBtn = document.getElementById("tabTradesBtn");
+      const aBtn = document.getElementById("tabAnalyticsBtn");
+
+      pView.classList.add("hidden");
+      tView.classList.add("hidden");
+      aView.classList.add("hidden");
+
+      pBtn.className = "text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1";
+      tBtn.className = "text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1";
+      aBtn.className = "text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1";
 
       if (tab === "positions") {
         pView.classList.remove("hidden");
-        tView.classList.add("hidden");
         pBtn.className = "text-xs font-mono font-bold uppercase tracking-wider text-accent border-b-2 border-accent pb-1";
-        tBtn.className = "text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1";
-      } else {
-        pView.classList.add("hidden");
+      } else if (tab === "trades") {
         tView.classList.remove("hidden");
         tBtn.className = "text-xs font-mono font-bold uppercase tracking-wider text-accent border-b-2 border-accent pb-1";
-        pBtn.className = "text-xs font-mono font-semibold uppercase tracking-wider text-dim hover:text-white pb-1";
+      } else if (tab === "analytics") {
+        aView.classList.remove("hidden");
+        aBtn.className = "text-xs font-mono font-bold uppercase tracking-wider text-accent border-b-2 border-accent pb-1";
+        fetchAnalytics();
       }
     }
 
@@ -1145,6 +1227,9 @@
         document.getElementById("cfgTakeProfit").value = cfg.take_profit_pct || 50;
         document.getElementById("cfgStopLoss").value = cfg.stop_loss_pct || 20;
         document.getElementById("cfgTrailingStop").value = cfg.trailing_stop_pct || 15;
+        document.getElementById("cfgUseJito").checked = !!cfg.use_jito;
+        document.getElementById("cfgJitoTip").value = cfg.jito_tip_sol || 0.001;
+        document.getElementById("cfgMaxDailyLoss").value = cfg.max_daily_loss_sol || 1.0;
         document.getElementById("cfgDiscord").value = cfg.discord_webhook_url || "";
         document.getElementById("cfgTgToken").value = cfg.telegram_bot_token || "";
         document.getElementById("cfgTgChat").value = cfg.telegram_chat_id || "";
@@ -1172,6 +1257,9 @@
         take_profit_pct: parseFloat(document.getElementById("cfgTakeProfit").value) || 50,
         stop_loss_pct: parseFloat(document.getElementById("cfgStopLoss").value) || 20,
         trailing_stop_pct: parseFloat(document.getElementById("cfgTrailingStop").value) || 15,
+        use_jito: document.getElementById("cfgUseJito").checked,
+        jito_tip_sol: parseFloat(document.getElementById("cfgJitoTip").value) || 0.001,
+        max_daily_loss_sol: parseFloat(document.getElementById("cfgMaxDailyLoss").value) || 1.0,
         discord_webhook_url: document.getElementById("cfgDiscord").value.trim() || null,
         telegram_bot_token: document.getElementById("cfgTgToken").value.trim() || null,
         telegram_chat_id: document.getElementById("cfgTgChat").value.trim() || null,
@@ -1270,15 +1358,89 @@
       terminal.scrollTop = terminal.scrollHeight;
     }
 
+    let autoSnipeActive = true;
+    async function toggleAutoSnipe() {
+      autoSnipeActive = !autoSnipeActive;
+      try {
+        await fetch("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ auto_snipe: autoSnipeActive })
+        });
+        updateAutoSnipeUI();
+        addLog(`Auto-Snipe turned ${autoSnipeActive ? 'ON' : 'OFF'}`, autoSnipeActive ? 'accent' : 'warn');
+      } catch (e) {}
+    }
+
+    function updateAutoSnipeUI() {
+      const btn = document.getElementById("autoSnipeBtn");
+      const txt = document.getElementById("autoSnipeText");
+      if (!btn || !txt) return;
+      if (autoSnipeActive) {
+        btn.className = "bg-accent/10 border border-accent/40 text-accent hover:bg-accent hover:text-black font-mono text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 font-semibold";
+        txt.innerText = "Auto: ON";
+      } else {
+        btn.className = "bg-panel2 border border-border2 text-dim hover:text-white font-mono text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
+        txt.innerText = "Auto: OFF";
+      }
+    }
+
+    async function fetchAnalytics() {
+      try {
+        const res = await fetch("/api/analytics");
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById("anWinRate").innerText = `${d.win_rate_pct.toFixed(1)}%`;
+        document.getElementById("anWinRateBar").style.width = `${Math.min(100, Math.max(0, d.win_rate_pct))}%`;
+        document.getElementById("anWinLossRatio").innerText = `${d.winning_trades} Wins / ${d.losing_trades} Losses`;
+
+        const sign = d.total_realized_pnl_sol >= 0 ? '+' : '';
+        const pnlEl = document.getElementById("anTotalPnl");
+        pnlEl.innerText = `${sign}${d.total_realized_pnl_sol.toFixed(4)} SOL`;
+        pnlEl.className = `text-xl font-bold font-mono mt-1 ${d.total_realized_pnl_sol >= 0 ? 'text-accent' : 'text-danger'}`;
+
+        document.getElementById("anProfitFactor").innerText = `Profit Factor: ${d.profit_factor.toFixed(2)}`;
+        document.getElementById("anAvgWin").innerText = `+${d.avg_win_pct.toFixed(1)}%`;
+        document.getElementById("anAvgLoss").innerText = `${d.avg_loss_pct.toFixed(1)}%`;
+      } catch (e) {}
+    }
+
+    async function fetchNetworkLatency() {
+      try {
+        const res = await fetch("/api/network/latency");
+        if (res.ok) {
+          const data = await res.json();
+          const dot = document.getElementById("rpcPingDot");
+          const text = document.getElementById("rpcPingText");
+          if (!dot || !text) return;
+          if (data.latency_ms > 0) {
+            text.innerText = `RPC: ${data.latency_ms}ms`;
+            if (data.latency_ms < 300) {
+              dot.className = "inline-block w-2 h-2 rounded-full bg-accent";
+              text.className = "text-dim";
+            } else if (data.latency_ms < 1000) {
+              dot.className = "inline-block w-2 h-2 rounded-full bg-warn";
+              text.className = "text-warn";
+            } else {
+              dot.className = "inline-block w-2 h-2 rounded-full bg-danger";
+              text.className = "text-danger";
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     function clearLogs() {
       document.getElementById("logTerminal").innerHTML = "";
     }
 
-    // Initialize Chart and WebSocket
+    // Initialize Chart, Latency, and WebSocket
     window.addEventListener("DOMContentLoaded", () => {
       initChart();
       connectWebSocket();
+      fetchNetworkLatency();
       setInterval(fetchStatus, 4000);
+      setInterval(fetchNetworkLatency, 10000);
     });
   </script>
 </body>

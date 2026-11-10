@@ -7,6 +7,8 @@ class BotConfig(BaseModel):
     # Core Operation
     mode: BotMode = BotMode.PAPER
     is_running: bool = True
+    auto_snipe: bool = True
+    max_daily_loss_sol: float = 1.0
     
     # RPC & Network
     solana_rpc_url: str = "https://api.mainnet-beta.solana.com"

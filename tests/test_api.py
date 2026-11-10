@@ -63,6 +63,21 @@ class TestMaguraBotAPI(unittest.TestCase):
         self.assertIn("win_rate_pct", res_analytics.json())
         self.assertIn("total_realized_pnl_sol", res_analytics.json())
 
+    def test_network_latency_endpoint(self):
+        res = self.client.get("/api/network/latency")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("latency_ms", data)
+        self.assertIn("rpc_url", data)
+
+    def test_jito_and_auto_snipe_config(self):
+        res = self.client.post("/api/config", json={"use_jito": True, "auto_snipe": False, "max_daily_loss_sol": 2.5})
+        self.assertEqual(res.status_code, 200)
+        cfg = res.json()["config"]
+        self.assertTrue(cfg["use_jito"])
+        self.assertFalse(cfg["auto_snipe"])
+        self.assertEqual(cfg["max_daily_loss_sol"], 2.5)
+
 
 
 if __name__ == "__main__":

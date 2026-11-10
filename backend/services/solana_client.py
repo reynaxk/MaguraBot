@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Optional, Dict, Any
 import aiohttp
 import base58
@@ -56,6 +57,16 @@ class SolanaClient:
             lamports = res["value"]
             return lamports / 1_000_000_000
         return 0.0
+
+    async def get_latency_ms(self) -> float:
+        """Measure roundtrip RPC ping latency in milliseconds."""
+        t0 = time.time()
+        try:
+            res = await self.rpc_call("getHealth", [])
+            latency = (time.time() - t0) * 1000.0
+            return round(latency, 1)
+        except Exception:
+            return -1.0
 
     async def get_latest_blockhash(self) -> Optional[str]:
         """Fetch latest blockhash for transaction construction."""
