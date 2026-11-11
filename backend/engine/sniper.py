@@ -64,6 +64,13 @@ class SniperEngine:
         self.recent_tokens: List[TokenData] = []
         self.subscribers: List[Callable[[BotEvent], None]] = []
         
+        # Lifetime metrics & concurrency controls
+        self.lifetime_trades_count: int = 0
+        self.lifetime_pnl_sol: float = 0.0
+        self.lifetime_wins: int = 0
+        self._snipe_lock = asyncio.Lock()
+        self._in_flight_snipes: int = 0
+        
         self.is_running = False
 
     def subscribe(self, listener: Callable[[BotEvent], None]):
@@ -86,6 +93,16 @@ class SniperEngine:
             return
         self.is_running = True
         self.config.is_running = True
+        
+        # Load historical lifetime metrics from SQLite
+        try:
+            stats = await self.storage.get_trade_stats()
+            self.lifetime_trades_count = stats.get("total_trades", 0)
+            self.lifetime_pnl_sol = stats.get("total_pnl_sol", 0.0)
+            self.lifetime_wins = stats.get("wins", 0)
+            logger.info(f"Loaded lifetime history: {self.lifetime_trades_count} trades, {self.lifetime_pnl_sol:+.4f} SOL PnL")
+        except Exception as e:
+            logger.debug(f"Could not load initial trade stats: {e}")
         
         await self.tracker.start()
         await self.discovery.start()
@@ -134,36 +151,49 @@ class SniperEngine:
             logger.debug(f"Auto-snipe is paused. {token.symbol} will only be monitored on radar.")
             return
 
-        # 1. Check daily loss circuit breaker
-        total_pnl = sum(p.pnl_sol for p in self.closed_trades)
-        if total_pnl < -abs(self.config.max_daily_loss_sol):
-            logger.warning(
-                f"Circuit Breaker Triggered: Total realized loss ({total_pnl:.4f} SOL) "
-                f"exceeds max daily loss ({self.config.max_daily_loss_sol} SOL). Auto-sniping suspended."
+        # 1. Atomic reservation for position limits to prevent race condition slot overflows
+        async with self._snipe_lock:
+            open_count = len([p for p in self.positions.values() if p.status == PositionStatus.OPEN])
+            if open_count + self._in_flight_snipes >= self.config.max_positions:
+                logger.debug(
+                    f"Max concurrent positions reached ({open_count} open + {self._in_flight_snipes} pending >= {self.config.max_positions}). "
+                    f"Skipping {token.symbol}."
+                )
+                return
+
+            can_trade, reason = self.trade_agent.can_snipe(token, open_count + self._in_flight_snipes)
+            if not can_trade:
+                logger.debug(f"Skipping {token.symbol}: {reason}")
+                return
+
+            self._in_flight_snipes += 1
+
+        try:
+            # 2. Check daily loss circuit breaker against lifetime session PnL
+            if self.lifetime_pnl_sol < -abs(self.config.max_daily_loss_sol):
+                logger.warning(
+                    f"Circuit Breaker Triggered: Total realized loss ({self.lifetime_pnl_sol:.4f} SOL) "
+                    f"exceeds max daily loss ({self.config.max_daily_loss_sol} SOL). Auto-sniping suspended."
+                )
+                return
+
+            # 3. Multi-factor risk screening
+            passed, risk_reason = await self.risk_agent.evaluate(token)
+            if not passed:
+                logger.info(f"Rug Filter [{token.symbol}]: {risk_reason}")
+                return
+
+            # 4. Trigger Snipe!
+            self.trade_agent.record_snipe(token.mint)
+            self.broadcast(
+                EventType.SNIPE_TRIGGERED,
+                {"mint": token.mint, "symbol": token.symbol, "amount_sol": self.config.buy_amount_sol},
+                f"Sniping {token.symbol} for {self.config.buy_amount_sol} SOL",
             )
-            return
-
-        # 2. Check trading limits and cooldown
-        open_count = len([p for p in self.positions.values() if p.status == PositionStatus.OPEN])
-        can_trade, reason = self.trade_agent.can_snipe(token, open_count)
-        if not can_trade:
-            logger.debug(f"Skipping {token.symbol}: {reason}")
-            return
-
-        # 3. Multi-factor risk screening
-        passed, risk_reason = await self.risk_agent.evaluate(token)
-        if not passed:
-            logger.info(f"Rug Filter [{token.symbol}]: {risk_reason}")
-            return
-
-        # 3. Trigger Snipe!
-        self.trade_agent.record_snipe(token.mint)
-        self.broadcast(
-            EventType.SNIPE_TRIGGERED,
-            {"mint": token.mint, "symbol": token.symbol, "amount_sol": self.config.buy_amount_sol},
-            f"Sniping {token.symbol} for {self.config.buy_amount_sol} SOL",
-        )
-        await self._execute_snipe(token, self.config.buy_amount_sol)
+            await self._execute_snipe(token, self.config.buy_amount_sol)
+        finally:
+            async with self._snipe_lock:
+                self._in_flight_snipes = max(0, self._in_flight_snipes - 1)
 
     async def _execute_snipe(self, token: TokenData, amount_sol: float):
         order, err = await self.executor.execute_buy(token, amount_sol)
@@ -261,15 +291,23 @@ class SniperEngine:
             pos.sell_order_id = order.id
             pos.sell_tx_hash = order.tx_hash
 
-        # Update final PnL
+        # Update final PnL: include both final leg and any prior scale-out gains
         current_value_sol = pos.tokens_held * pos.current_price_sol
-        pos.pnl_sol = current_value_sol - pos.sol_invested
-        pos.pnl_pct = (pos.pnl_sol / pos.sol_invested) * 100.0 if pos.sol_invested > 0 else 0.0
+        final_leg_pnl = current_value_sol - pos.sol_invested
+        total_trade_pnl = final_leg_pnl + getattr(pos, "realized_pnl_sol", 0.0)
+        pos.pnl_sol = total_trade_pnl
+        total_cost = pos.sol_invested + (pos.sol_invested if pos.scale_out_triggered else 0.0)
+        pos.pnl_pct = (total_trade_pnl / total_cost) * 100.0 if total_cost > 0 else 0.0
         pos.pnl_usd = pos.pnl_sol * 180.0
 
         self.closed_trades.insert(0, pos)
-        if len(self.closed_trades) > 100:
+        if len(self.closed_trades) > 2000:
             self.closed_trades.pop()
+
+        self.lifetime_trades_count += 1
+        self.lifetime_pnl_sol += total_trade_pnl
+        if total_trade_pnl > 0:
+            self.lifetime_wins += 1
 
         asyncio.create_task(self.storage.save_trade(pos.model_dump()))
 
@@ -303,10 +341,10 @@ class SniperEngine:
 
     def get_metrics(self) -> dict:
         open_pos = [p for p in self.positions.values() if p.status == PositionStatus.OPEN]
-        wins = [p for p in self.closed_trades if p.pnl_sol > 0]
-        total_pnl_sol = sum(p.pnl_sol for p in self.closed_trades)
-        total_pnl_usd = total_pnl_sol * 180.0
-        win_rate = (len(wins) / len(self.closed_trades) * 100.0) if self.closed_trades else 0.0
+        total_trades = max(self.lifetime_trades_count, len(self.closed_trades))
+        total_pnl_sol = self.lifetime_pnl_sol if self.lifetime_trades_count > 0 else sum(p.pnl_sol for p in self.closed_trades)
+        wins_count = self.lifetime_wins if self.lifetime_trades_count > 0 else len([p for p in self.closed_trades if p.pnl_sol > 0])
+        win_rate = (wins_count / total_trades * 100.0) if total_trades > 0 else 0.0
 
         return {
             "mode": self.config.mode.value,
@@ -314,10 +352,11 @@ class SniperEngine:
             "auto_snipe": self.config.auto_snipe,
             "use_jito": self.config.use_jito,
             "open_positions_count": len(open_pos),
-            "total_trades": len(self.closed_trades),
+            "max_positions": self.config.max_positions,
+            "total_trades": total_trades,
             "win_rate_pct": round(win_rate, 1),
             "total_pnl_sol": round(total_pnl_sol, 4),
-            "total_pnl_usd": round(total_pnl_usd, 2),
+            "total_pnl_usd": round(total_pnl_sol * 180.0, 2),
             "paper_balance_sol": round(self.executor.paper_balance_sol, 4),
             "sol_price_usd": 180.0,
         }

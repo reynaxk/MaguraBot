@@ -146,3 +146,30 @@ class StorageService:
 
     async def save_order(self, order_data: Dict[str, Any]):
         await asyncio.to_thread(self._save_order_sync, order_data)
+
+    def _get_trade_stats_sync(self) -> Dict[str, Any]:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    COUNT(*), 
+                    COALESCE(SUM(pnl_sol), 0.0), 
+                    COALESCE(SUM(CASE WHEN pnl_sol > 0 THEN 1 ELSE 0 END), 0)
+                FROM trades
+            """)
+            row = cursor.fetchone()
+            total_trades = row[0] if row else 0
+            total_pnl = float(row[1]) if row else 0.0
+            wins = row[2] if row else 0
+            losses = max(0, total_trades - wins)
+            win_rate = (wins / total_trades * 100.0) if total_trades > 0 else 0.0
+            return {
+                "total_trades": total_trades,
+                "total_pnl_sol": total_pnl,
+                "wins": wins,
+                "losses": losses,
+                "win_rate_pct": win_rate,
+            }
+
+    async def get_trade_stats(self) -> Dict[str, Any]:
+        return await asyncio.to_thread(self._get_trade_stats_sync)

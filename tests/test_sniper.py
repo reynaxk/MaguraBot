@@ -10,6 +10,7 @@ from backend.engine.executor import TradeExecutor
 from backend.engine.position_tracker import PositionTracker
 from backend.agents.risk_agent import RiskAgent
 from backend.agents.trade_agent import TradeAgent
+from backend.engine.sniper import SniperEngine
 
 
 class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
@@ -240,6 +241,138 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         # Hard cap protection test
         tip_capped = jito.calculate_dynamic_tip(base_tip_sol=0.01, safety_score=95, max_tip_sol=0.01)
         self.assertEqual(tip_capped, 0.01)
+
+    async def test_lifetime_metrics_exceeding_100_trades(self):
+        """Verify trade counter and cumulative lifetime PnL persist accurately past 100 trades."""
+        from unittest.mock import AsyncMock
+        engine = SniperEngine(self.config)
+        engine.storage.save_trade = AsyncMock()
+        engine.alerts.send_exit_alert = AsyncMock()
+
+        # Simulate closing 120 trades with +0.05 SOL each
+        for i in range(120):
+            pos = Position(
+                id=f"trade_{i}",
+                token_mint=f"Mint_{i}",
+                symbol=f"TKN{i}",
+                name=f"Token {i}",
+                mode=BotMode.PAPER,
+                buy_order_id=f"buy_{i}",
+                buy_price_sol=0.0001,
+                buy_price_usd=0.018,
+                sol_invested=0.05,
+                tokens_held=500.0,
+                current_price_sol=0.0002,
+                current_price_usd=0.036,
+                peak_price_sol=0.0002,
+                take_profit_price=0.0002,
+                stop_loss_price=0.00008,
+            )
+            engine.positions[pos.id] = pos
+            await engine.close_position(pos.id, ExitReason.TAKE_PROFIT)
+
+        metrics = engine.get_metrics()
+        self.assertEqual(metrics["total_trades"], 120)
+        self.assertGreater(metrics["total_trades"], 100)
+        self.assertEqual(engine.lifetime_trades_count, 120)
+        self.assertEqual(engine.lifetime_wins, 120)
+        self.assertAlmostEqual(metrics["total_pnl_sol"], 120 * 0.05, places=3)
+        self.assertEqual(metrics["win_rate_pct"], 100.0)
+
+        await engine.solana_client.close()
+        await engine.security.close()
+        await engine.jupiter.close()
+        await engine.alerts.close()
+
+    async def test_scale_out_pnl_aggregation(self):
+        """Verify scale-out partial profits are summed into pos.pnl_sol and lifetime_pnl_sol."""
+        from unittest.mock import AsyncMock
+        engine = SniperEngine(self.config)
+        engine.storage.save_trade = AsyncMock()
+        engine.alerts.send_exit_alert = AsyncMock()
+
+        # Pos where scale-out sold 50% for 0.04 SOL profit earlier
+        pos = Position(
+            id="scale_out_pos",
+            token_mint="Mint_ScaleOut",
+            symbol="SCALE",
+            name="Scale Token",
+            mode=BotMode.PAPER,
+            buy_order_id="buy_scale",
+            buy_price_sol=0.0001,
+            buy_price_usd=0.018,
+            sol_invested=0.025,  # remaining half invested
+            tokens_held=250.0,
+            current_price_sol=0.0002,  # final leg sells 250 * 0.0002 = 0.05 SOL -> profit 0.025 SOL
+            current_price_usd=0.036,
+            peak_price_sol=0.0002,
+            take_profit_price=0.0002,
+            stop_loss_price=0.00008,
+            scale_out_triggered=True,
+            realized_pnl_sol=0.04,  # First leg realized profit
+        )
+        engine.positions[pos.id] = pos
+        await engine.close_position(pos.id, ExitReason.TAKE_PROFIT)
+
+        closed = engine.closed_trades[0]
+        # Total profit = 0.04 (TP1) + (0.05 - 0.025 = 0.025) (TP2) = 0.065 SOL
+        self.assertAlmostEqual(closed.pnl_sol, 0.065, places=4)
+        self.assertAlmostEqual(engine.lifetime_pnl_sol, 0.065, places=4)
+
+        await engine.solana_client.close()
+        await engine.security.close()
+        await engine.jupiter.close()
+        await engine.alerts.close()
+
+    async def test_concurrency_slot_reservation(self):
+        """Verify _in_flight_snipes and _snipe_lock prevent slot overflow when tokens arrive simultaneously."""
+        from unittest.mock import AsyncMock
+        engine = SniperEngine(self.config)
+        engine.config.max_positions = 2
+
+        # Mock trade_agent to focus purely on testing concurrency slot reservation
+        engine.trade_agent.can_snipe = lambda token, count: (count < engine.config.max_positions, "Slot available" if count < engine.config.max_positions else "Max positions reached")
+        engine.risk_agent.evaluate = AsyncMock(return_value=(True, "Safe"))
+        
+        async def slow_execute(token, amount):
+            await asyncio.sleep(0.05)
+            # simulate opening position
+            pos = Position(
+                id=f"pos_{token.mint}",
+                token_mint=token.mint,
+                symbol=token.symbol,
+                name=token.name,
+                mode=BotMode.PAPER,
+                buy_order_id="buy",
+                buy_price_sol=0.0001,
+                buy_price_usd=0.018,
+                sol_invested=0.05,
+                tokens_held=500.0,
+                current_price_sol=0.0001,
+                current_price_usd=0.018,
+                peak_price_sol=0.0001,
+                take_profit_price=0.0002,
+                stop_loss_price=0.00008,
+            )
+            engine.positions[pos.id] = pos
+
+        engine._execute_snipe = AsyncMock(side_effect=slow_execute)
+
+        tokens = [
+            TokenData(mint=f"Mint_Concurrent_{i}", symbol=f"C{i}", name=f"Concurrent {i}", source=LaunchpadType.PUMPFUN)
+            for i in range(5)
+        ]
+
+        # Dispatch 5 simultaneous discovery tasks
+        await asyncio.gather(*[engine._process_token(t) for t in tokens])
+
+        # Exactly 2 positions should be executed/open because max_positions is 2
+        self.assertEqual(len(engine.positions), 2)
+
+        await engine.solana_client.close()
+        await engine.security.close()
+        await engine.jupiter.close()
+        await engine.alerts.close()
 
 
 if __name__ == "__main__":

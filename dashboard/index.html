@@ -1425,13 +1425,15 @@
       }
     }
 
+    let maxPositionsLimit = 5;
+
     function renderPositions(positions) {
       openPositions.length = 0;
       openPositions.push(...positions);
 
       const tbody = document.getElementById("positionsTableBody");
       document.getElementById("openCountBadge").innerText = positions.length;
-      document.getElementById("statActiveCount").innerText = `${positions.length} / 5`;
+      document.getElementById("statActiveCount").innerText = `${positions.length} / ${maxPositionsLimit}`;
 
       if (!positions || positions.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-dim">No active open positions. Sniper is scanning for entry signals.</td></tr>`;
@@ -1505,6 +1507,10 @@
 
     function updateMetrics(m) {
       if (!m) return;
+      if (m.max_positions) {
+        maxPositionsLimit = m.max_positions;
+        document.getElementById("statActiveCount").innerText = `${openPositions.length} / ${maxPositionsLimit}`;
+      }
       document.getElementById("statBalance").innerText = `${m.paper_balance_sol.toFixed(3)} SOL`;
       document.getElementById("statBalanceUsd").innerText = `≈ $${(m.paper_balance_sol * m.sol_price_usd).toFixed(2)}`;
       

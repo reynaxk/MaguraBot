@@ -193,7 +193,7 @@ async def export_trades_csv():
             p.tokens_held,
             f"{p.entry_price_sol:.9f}",
             f"{p.current_price_sol:.9f}",
-            round(p.realized_pnl_sol, 5),
+            round(p.pnl_sol, 5),
             round(p.pnl_pct, 2),
             p.opened_at,
             p.closed_at or ""
@@ -209,7 +209,7 @@ async def export_trades_csv():
 @app.get("/api/analytics")
 async def get_analytics():
     trades = engine.closed_trades
-    total_trades = len(trades)
+    total_trades = max(engine.lifetime_trades_count, len(trades))
     if total_trades == 0:
         return {
             "total_trades": 0,
@@ -225,8 +225,10 @@ async def get_analytics():
 
     wins = [t for t in trades if t.pnl_sol > 0]
     losses = [t for t in trades if t.pnl_sol <= 0]
-    win_rate = (len(wins) / total_trades) * 100
-    total_pnl = sum(t.pnl_sol for t in trades)
+    winning_trades = engine.lifetime_wins if engine.lifetime_trades_count >= len(trades) else len(wins)
+    losing_trades = max(0, total_trades - winning_trades)
+    win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0.0
+    total_pnl = engine.lifetime_pnl_sol if engine.lifetime_trades_count >= len(trades) else sum(t.pnl_sol for t in trades)
     avg_win = (sum(t.pnl_pct for t in wins) / len(wins)) if wins else 0.0
     avg_loss = (sum(t.pnl_pct for t in losses) / len(losses)) if losses else 0.0
     gross_profits = sum(t.pnl_sol for t in wins)
@@ -238,7 +240,7 @@ async def get_analytics():
     for t in sorted(trades, key=lambda x: x.closed_at or 0):
         cumulative += t.pnl_sol
         equity_curve.append({
-            "timestamp": t.closed_at or t.entered_at,
+            "timestamp": t.closed_at or t.opened_at,
             "symbol": t.symbol,
             "pnl_sol": round(t.pnl_sol, 5),
             "cumulative_pnl_sol": round(cumulative, 5),
@@ -247,8 +249,8 @@ async def get_analytics():
     return {
         "total_trades": total_trades,
         "win_rate_pct": round(win_rate, 1),
-        "winning_trades": len(wins),
-        "losing_trades": len(losses),
+        "winning_trades": winning_trades,
+        "losing_trades": losing_trades,
         "total_realized_pnl_sol": round(total_pnl, 5),
         "avg_win_pct": round(avg_win, 1),
         "avg_loss_pct": round(avg_loss, 1),
