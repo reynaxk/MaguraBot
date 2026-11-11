@@ -79,7 +79,15 @@ class PositionTracker:
         p.pnl_pct = (p.pnl_sol / p.sol_invested) * 100.0 if p.sol_invested > 0 else 0.0
         p.pnl_usd = p.pnl_sol * 180.0
 
-        # 3. Check Take Profit / Scale Out
+        # 3. Check Breakeven Stop-Loss Lock (+20% gain locks SL at entry to guarantee risk-free trade)
+        if getattr(self.config, "enable_breakeven_lock", True) and not p.breakeven_locked:
+            trigger_pct = getattr(self.config, "breakeven_trigger_pct", 20.0)
+            if p.pnl_pct >= trigger_pct:
+                p.breakeven_locked = True
+                p.stop_loss_price = max(p.stop_loss_price, p.buy_price_sol * 1.005)  # 0.5% above entry for fee buffer
+                logger.info(f"🛡️ Breakeven Stop-Loss LOCKED for {p.symbol}: price reached +{p.pnl_pct:.1f}%. Risk-free trade secured.")
+
+        # 4. Check Take Profit / Scale Out
         if p.pnl_pct >= self.config.take_profit_pct:
             if self.config.enable_scale_out and not p.scale_out_triggered:
                 p.scale_out_triggered = True
@@ -91,9 +99,10 @@ class PositionTracker:
                 await self.on_exit_triggered(p, ExitReason.TAKE_PROFIT)
                 return
 
-        # 4. Check Stop Loss
-        if p.pnl_pct <= -self.config.stop_loss_pct:
-            logger.info(f"Stop Loss triggered for {p.symbol}: {p.pnl_pct:.1f}%")
+        # 5. Check Stop Loss (Standard SL or Breakeven Lock)
+        if new_price <= p.stop_loss_price or p.pnl_pct <= -self.config.stop_loss_pct:
+            reason_desc = "Breakeven Stop Loss" if p.breakeven_locked else "Stop Loss"
+            logger.info(f"{reason_desc} triggered for {p.symbol}: {p.pnl_pct:.1f}%")
             await self.on_exit_triggered(p, ExitReason.STOP_LOSS)
             return
 

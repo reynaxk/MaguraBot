@@ -87,6 +87,7 @@ class Position(BaseModel):
     stop_loss_price: float
     trailing_stop_active: bool = False
     scale_out_triggered: bool = False
+    breakeven_locked: bool = False
     initial_tokens_held: float = 0.0
     realized_pnl_sol: float = 0.0
     

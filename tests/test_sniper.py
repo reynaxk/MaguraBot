@@ -176,6 +176,54 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         await listener.stop()
         self.assertFalse(listener._running)
 
+    async def test_breakeven_lock(self):
+        """Verify that when position reaches +20% gain, Stop-Loss is raised to breakeven."""
+        mock_exit_callback = asyncio.iscoroutinefunction
+        tracker = PositionTracker(self.config, lambda p, r: None)
+        pos = Position(
+            token_mint="TestBreakeven123",
+            symbol="SAFE",
+            name="Safe Token",
+            mode=BotMode.PAPER,
+            buy_order_id="b2",
+            buy_price_sol=0.0001,
+            buy_price_usd=0.018,
+            sol_invested=0.1,
+            tokens_held=1000.0,
+            current_price_sol=0.0001,
+            current_price_usd=0.018,
+            peak_price_sol=0.0001,
+            take_profit_price=0.00015,
+            stop_loss_price=0.00008,
+        )
+        tracker.add_position(pos)
+        self.assertFalse(pos.breakeven_locked)
+        self.assertEqual(pos.stop_loss_price, 0.00008)
+
+        # Simulate +25% pump
+        pos.current_price_sol = 0.000125
+        await tracker._evaluate_position(pos)
+
+        self.assertTrue(pos.breakeven_locked)
+        self.assertGreaterEqual(pos.stop_loss_price, pos.buy_price_sol)
+
+    def test_pump_curve_math(self):
+        """Verify constant product bonding curve calculation on Pump.fun."""
+        from backend.services.pump_curve import PumpCurveCalculator
+        # 0 SOL deposited = 0%
+        c0 = PumpCurveCalculator.calculate_bonding_progress(0.0)
+        self.assertEqual(c0["progress_pct"], 0.0)
+        self.assertFalse(c0["is_graduating"])
+
+        # 85 SOL deposited = 100% (Graduated)
+        c85 = PumpCurveCalculator.calculate_bonding_progress(85.0)
+        self.assertEqual(c85["progress_pct"], 100.0)
+        self.assertTrue(c85["is_migrated"])
+
+        # Estimate tokens out for 0.1 SOL buy
+        tokens = PumpCurveCalculator.estimate_tokens_out(10.0, 0.1)
+        self.assertGreater(tokens, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -443,10 +443,14 @@
               <input id="cfgTrailingStop" type="number" step="5" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
             </div>
           </div>
-          <div class="pt-1">
+          <div class="pt-1 space-y-1.5">
             <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
               <input id="cfgEnableScaleOut" type="checkbox" checked class="accent-accent" />
               <span class="text-white text-[11px]">Auto-Scale Out (Sell 50% at TP1 to secure principal, keep 50% Moonbag with Trailing Stop)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
+              <input id="cfgEnableBreakevenLock" type="checkbox" checked class="accent-accent" />
+              <span class="text-white text-[11px]">🛡️ Auto-Lock Breakeven SL (+20% gain locks Stop Loss at entry to guarantee risk-free trade)</span>
             </label>
           </div>
         </div>
@@ -671,6 +675,37 @@
           <div class="text-right space-y-1">
             <div id="auditMintAuth" class="text-xs font-semibold text-accent">Mint Authority: --</div>
             <div id="auditFreezeAuth" class="text-xs font-semibold text-accent">Freeze Authority: --</div>
+          </div>
+        </div>
+
+        <!-- Bonding Curve & Top Holders Progress -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-panel2 p-3 rounded-xl border border-border1 space-y-1.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-dim uppercase font-semibold">Bonding Curve</span>
+              <span id="auditBondingPct" class="font-bold text-white font-mono">--%</span>
+            </div>
+            <div class="w-full bg-black/50 h-2 rounded-full overflow-hidden border border-border1">
+              <div id="auditBondingBar" class="bg-accent h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="text-[10px] text-dim flex justify-between">
+              <span>Target: 85 SOL</span>
+              <span id="auditGraduationStatus" class="text-accent font-semibold">Pump.fun</span>
+            </div>
+          </div>
+
+          <div class="bg-panel2 p-3 rounded-xl border border-border1 space-y-1.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-dim uppercase font-semibold">Top 10 Holders</span>
+              <span id="auditTop10Pct" class="font-bold text-white font-mono">--%</span>
+            </div>
+            <div class="w-full bg-black/50 h-2 rounded-full overflow-hidden border border-border1">
+              <div id="auditTop10Bar" class="bg-blueCol h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="text-[10px] text-dim flex justify-between">
+              <span>Whale Limit: &lt;25%</span>
+              <span id="auditDevPct" class="text-dim font-mono">Dev: --%</span>
+            </div>
           </div>
         </div>
 
@@ -1515,6 +1550,7 @@
         document.getElementById("cfgJitoTip").value = cfg.jito_tip_sol || 0.001;
         document.getElementById("cfgMaxDailyLoss").value = cfg.max_daily_loss_sol || 1.0;
         document.getElementById("cfgEnableScaleOut").checked = cfg.enable_scale_out !== false;
+        document.getElementById("cfgEnableBreakevenLock").checked = cfg.enable_breakeven_lock !== false;
         document.getElementById("cfgEnablePump").checked = cfg.enable_pumpfun !== false;
         document.getElementById("cfgEnableRaydium").checked = cfg.enable_raydium !== false;
         document.getElementById("cfgEnableMeteora").checked = cfg.enable_meteora !== false;
@@ -1547,6 +1583,7 @@
         stop_loss_pct: parseFloat(document.getElementById("cfgStopLoss").value) || 20,
         trailing_stop_pct: parseFloat(document.getElementById("cfgTrailingStop").value) || 15,
         enable_scale_out: document.getElementById("cfgEnableScaleOut").checked,
+        enable_breakeven_lock: document.getElementById("cfgEnableBreakevenLock").checked,
         enable_pumpfun: document.getElementById("cfgEnablePump").checked,
         enable_raydium: document.getElementById("cfgEnableRaydium").checked,
         enable_meteora: document.getElementById("cfgEnableMeteora").checked,
@@ -1587,13 +1624,22 @@
       document.getElementById("auditSymbol").innerText = currentAuditSymbol;
       document.getElementById("auditMint").innerText = mint;
       document.getElementById("auditScore").innerText = "...";
-      document.getElementById("auditReasonsList").innerHTML = `<div class="text-dim">Analyzing on-chain authorities and RugCheck API...</div>`;
+      document.getElementById("auditBondingPct").innerText = "...";
+      document.getElementById("auditBondingBar").style.width = "0%";
+      document.getElementById("auditTop10Pct").innerText = "...";
+      document.getElementById("auditTop10Bar").style.width = "0%";
+      document.getElementById("auditDevPct").innerText = "Dev: --%";
+      document.getElementById("auditReasonsList").innerHTML = `<div class="text-dim">Analyzing on-chain authorities, bonding curve and holders...</div>`;
       document.getElementById("auditModal").classList.remove("hidden");
 
       try {
-        const res = await fetch(`/api/tokens/${mint}/audit`);
-        if (res.ok) {
-          const d = await res.json();
+        const [auditRes, curveRes] = await Promise.allSettled([
+          fetch(`/api/tokens/${mint}/audit`),
+          fetch(`/api/pump/curve/${mint}`)
+        ]);
+
+        if (auditRes.status === "fulfilled" && auditRes.value.ok) {
+          const d = await auditRes.value.json();
           document.getElementById("auditScore").innerText = `${d.score}/100`;
           
           const badge = document.getElementById("auditTierBadge");
@@ -1612,6 +1658,12 @@
           frzEl.innerText = d.freeze_authority_revoked ? "Freeze Authority: REVOKED (Safe)" : "Freeze Authority: ACTIVE (Honeypot Risk)";
           frzEl.className = d.freeze_authority_revoked ? "text-xs font-semibold text-accent" : "text-xs font-semibold text-danger";
 
+          // Holders
+          const top10 = d.top10_holding_pct || 0;
+          document.getElementById("auditTop10Pct").innerText = `${top10.toFixed(1)}%`;
+          document.getElementById("auditTop10Bar").style.width = `${Math.min(100, top10)}%`;
+          document.getElementById("auditDevPct").innerText = `Dev: ${(d.dev_holding_pct || 0).toFixed(1)}%`;
+
           // Risks list
           const rList = document.getElementById("auditReasonsList");
           if (!d.reasons || d.reasons.length === 0) {
@@ -1625,6 +1677,24 @@
           document.getElementById("linkDexscreener").href = d.links.dexscreener;
           document.getElementById("linkRugcheck").href = d.links.rugcheck;
           document.getElementById("linkPumpfun").href = d.links.pumpfun;
+        }
+
+        if (curveRes.status === "fulfilled" && curveRes.value.ok) {
+          const c = await curveRes.value.json();
+          const bPct = c.progress_pct || 0;
+          document.getElementById("auditBondingPct").innerText = `${bPct.toFixed(1)}%`;
+          document.getElementById("auditBondingBar").style.width = `${Math.min(100, bPct)}%`;
+          const gradEl = document.getElementById("auditGraduationStatus");
+          if (c.is_graduating) {
+            gradEl.innerText = "🎓 GRADUATION IMMINENT!";
+            gradEl.className = "text-amber-400 font-bold animate-pulse";
+          } else if (c.is_migrated) {
+            gradEl.innerText = "Migrated to Raydium";
+            gradEl.className = "text-accent font-semibold";
+          } else {
+            gradEl.innerText = `Pump.fun (${c.sol_needed_to_graduate} SOL left)`;
+            gradEl.className = "text-dim";
+          }
         }
       } catch (e) {
         document.getElementById("auditReasonsList").innerHTML = `<div class="text-danger">Failed to fetch security audit: ${e}</div>`;

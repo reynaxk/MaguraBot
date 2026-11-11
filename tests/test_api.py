@@ -108,5 +108,30 @@ class TestMaguraBotAPI(unittest.TestCase):
         self.assertIn("Realized_PnL_SOL", res.text)
 
 
+    def test_rpc_pool_endpoint(self):
+        res = self.client.get("/api/rpc/pool")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("primary", data)
+        self.assertIn("endpoints", data)
+        self.assertTrue(len(data["endpoints"]) > 0)
+
+    def test_pump_curve_endpoint(self):
+        res = self.client.get("/api/pump/curve/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263?deposited_sol=42.5")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("progress_pct", data)
+        self.assertAlmostEqual(data["progress_pct"], 50.0, places=1)
+        self.assertIn("sol_needed_to_graduate", data)
+        self.assertFalse(data["is_migrated"])
+
+    def test_token_holders_endpoint(self):
+        res = self.client.get("/api/tokens/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263/holders")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("status", data)
+        self.assertIn("top_holders", data)
+
+
 if __name__ == "__main__":
     unittest.main()

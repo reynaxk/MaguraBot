@@ -17,6 +17,9 @@ from backend.models.order import BotMode
 from backend.services.candles import CandleService
 from backend.services.solana_client import SolanaClient
 from backend.engine.backtester import Backtester, BacktestRequest
+from backend.services.rpc_pool import RPCPoolService
+from backend.services.pump_curve import PumpCurveCalculator
+from backend.services.holders import HoldersScanner
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,9 +27,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("MaguraBot")
 
-# Initialize global sniper engine and candle service
+# Initialize global sniper engine and services
 engine = SniperEngine()
 candle_service = CandleService()
+rpc_pool = RPCPoolService([engine.config.solana_rpc_url])
+holders_scanner = HoldersScanner(engine.solana_client)
 active_websockets: list[WebSocket] = []
 
 
@@ -49,9 +54,12 @@ def on_bot_event(event: BotEvent):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     engine.subscribe(on_bot_event)
+    await rpc_pool.start()
     await engine.start()
     yield
     await engine.stop()
+    await rpc_pool.stop()
+    await holders_scanner.close()
     await candle_service.close()
 
 
@@ -104,6 +112,9 @@ class ConfigUpdateRequest(BaseModel):
     solana_rpc_url: Optional[str] = None
     enable_pumpfun: Optional[bool] = None
     enable_raydium: Optional[bool] = None
+    enable_meteora: Optional[bool] = None
+    enable_breakeven_lock: Optional[bool] = None
+    breakeven_trigger_pct: Optional[float] = None
     discord_webhook_url: Optional[str] = None
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
@@ -281,6 +292,29 @@ async def get_network_latency():
         "mode": engine.config.mode.value,
         "use_jito": engine.config.use_jito,
     }
+
+
+@app.get("/api/rpc/pool")
+async def get_rpc_pool():
+    return {
+        "primary": rpc_pool.get_primary_endpoint(),
+        "endpoints": rpc_pool.get_pool_status(),
+    }
+
+
+@app.get("/api/pump/curve/{mint}")
+async def get_pump_curve(mint: str, deposited_sol: float = 0.0):
+    if deposited_sol <= 0.0:
+        for t in engine.recent_tokens:
+            if t.mint == mint and t.v_sol_in_bonding_curve:
+                deposited_sol = t.v_sol_in_bonding_curve
+                break
+    return PumpCurveCalculator.calculate_bonding_progress(deposited_sol)
+
+
+@app.get("/api/tokens/{mint}/holders")
+async def get_token_holders(mint: str):
+    return await holders_scanner.analyze_holders(mint)
 
 
 
