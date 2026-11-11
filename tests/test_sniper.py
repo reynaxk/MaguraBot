@@ -224,6 +224,23 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         tokens = PumpCurveCalculator.estimate_tokens_out(10.0, 0.1)
         self.assertGreater(tokens, 0)
 
+    def test_jito_dynamic_tip_escalator(self):
+        """Verify dynamic tip escalator scales up for high-confidence tokens and respects cap."""
+        from backend.services.jito import JitoService
+        jito = JitoService()
+
+        # Grade A token (95/100) -> 1.8x
+        tip_a = jito.calculate_dynamic_tip(base_tip_sol=0.001, safety_score=95, max_tip_sol=0.01)
+        self.assertAlmostEqual(tip_a, 0.0018, places=4)
+
+        # Grade B token (80/100) -> 1.3x
+        tip_b = jito.calculate_dynamic_tip(base_tip_sol=0.001, safety_score=80, max_tip_sol=0.01)
+        self.assertAlmostEqual(tip_b, 0.0013, places=4)
+
+        # Hard cap protection test
+        tip_capped = jito.calculate_dynamic_tip(base_tip_sol=0.01, safety_score=95, max_tip_sol=0.01)
+        self.assertEqual(tip_capped, 0.01)
+
 
 if __name__ == "__main__":
     unittest.main()

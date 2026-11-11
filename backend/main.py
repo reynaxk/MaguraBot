@@ -107,6 +107,8 @@ class ConfigUpdateRequest(BaseModel):
     max_daily_loss_sol: Optional[float] = None
     use_jito: Optional[bool] = None
     jito_tip_sol: Optional[float] = None
+    enable_dynamic_jito_tip: Optional[bool] = None
+    max_jito_tip_sol: Optional[float] = None
     priority_fee_level: Optional[str] = None
     priority_fee_microlamports: Optional[int] = None
     solana_rpc_url: Optional[str] = None
@@ -317,6 +319,16 @@ async def get_token_holders(mint: str):
     return await holders_scanner.analyze_holders(mint)
 
 
+@app.get("/api/jito/tip-floor")
+async def get_jito_tip_floor():
+    floors = await engine.jito.fetch_tip_floor()
+    return {
+        "status": "success",
+        "tip_floors_sol": floors,
+        "base_tip_sol": engine.config.jito_tip_sol,
+        "dynamic_enabled": getattr(engine.config, "enable_dynamic_jito_tip", True),
+        "max_tip_sol": getattr(engine.config, "max_jito_tip_sol", 0.01),
+    }
 
 
 @app.get("/api/tokens/recent")

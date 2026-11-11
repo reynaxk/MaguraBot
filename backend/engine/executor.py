@@ -177,7 +177,14 @@ class TradeExecutor:
         # 3. Sign & Broadcast transaction
         try:
             if self.config.use_jito:
-                logger.info(f"Submitting buy transaction via Jito MEV Bundle with {self.config.jito_tip_sol} SOL tip...")
+                safety_score = getattr(token.safety, "score", 70) if hasattr(token, "safety") else 70
+                tip_sol = self.jito.calculate_dynamic_tip(
+                    base_tip_sol=self.config.jito_tip_sol,
+                    safety_score=safety_score,
+                    enable_dynamic=getattr(self.config, "enable_dynamic_jito_tip", True),
+                    max_tip_sol=getattr(self.config, "max_jito_tip_sol", 0.01),
+                )
+                logger.info(f"Submitting buy transaction via Jito MEV Bundle with {tip_sol:.5f} SOL dynamic tip...")
                 tx_sig = await self.jito.send_bundle([raw_tx_b64])
                 if not tx_sig:
                     # Fallback to direct RPC

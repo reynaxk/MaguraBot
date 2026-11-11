@@ -132,6 +132,15 @@ class TestMaguraBotAPI(unittest.TestCase):
         self.assertIn("status", data)
         self.assertIn("top_holders", data)
 
+    def test_jito_tip_floor_endpoint(self):
+        res = self.client.get("/api/jito/tip-floor")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("tip_floors_sol", data)
+        self.assertIn("dynamic_enabled", data)
+        self.assertTrue(data["dynamic_enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()

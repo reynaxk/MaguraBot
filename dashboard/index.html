@@ -239,6 +239,11 @@
                 DexScreener
               </button>
             </div>
+
+            <!-- Visual Price Lines Toggle -->
+            <button onclick="toggleChartOverlayLines()" id="btnToggleLines" title="Toggle TP, Trailing SL & Breakeven Visual Lines" class="bg-panel border border-border1 hover:border-accent/40 px-2 py-1 rounded text-accent text-xs font-mono transition flex items-center gap-1">
+              📊 <span id="linesToggleText">Lines: ON</span>
+            </button>
           </div>
         </div>
 
@@ -249,6 +254,13 @@
           
           <!-- DexScreener Iframe (Lazy Loaded) -->
           <iframe id="dexScreenerFrame" class="hidden w-full h-full border-0" src="" allowfullscreen></iframe>
+
+          <!-- Position Target Indicator Overlay -->
+          <div id="chartTargetsBadge" class="hidden absolute top-2 right-3 z-10 font-mono text-[11px] flex items-center gap-2.5 bg-panel/85 backdrop-blur-sm px-3 py-1 rounded-lg border border-border1/80 shadow-lg">
+            <span class="text-accent flex items-center gap-1 font-semibold"><span class="w-2 h-2 rounded-full bg-accent inline-block"></span> TP: <span id="chartBadgeTp">-</span></span>
+            <span id="chartBadgeBeWrap" class="text-blueCol hidden items-center gap-1 font-semibold"><span class="w-2 h-2 rounded-full bg-blueCol inline-block"></span> BE: <span id="chartBadgeBe">-</span></span>
+            <span class="text-danger flex items-center gap-1 font-semibold"><span class="w-2 h-2 rounded-full bg-danger inline-block"></span> SL: <span id="chartBadgeSl">-</span></span>
+          </div>
 
           <!-- Candle Legend / OHLCV Tooltip Overlay -->
           <div class="absolute top-2 left-3 z-10 font-mono text-[11px] text-dim pointer-events-none flex items-center gap-3 bg-panel/70 px-2 py-1 rounded border border-border1/50" id="ohlcLegend">
@@ -494,6 +506,22 @@
               <label class="block text-dim mb-1">Max Daily Loss (SOL Circuit Breaker)</label>
               <input id="cfgMaxDailyLoss" type="number" step="0.1" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
             </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <label class="block text-dim mb-1">Max Dynamic Tip Ceiling (SOL)</label>
+              <input id="cfgMaxJitoTip" type="number" step="0.002" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div class="flex flex-col justify-end">
+              <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
+                <input id="cfgEnableDynamicJitoTip" type="checkbox" checked class="accent-accent" />
+                <span class="text-white text-[11px]">⚡ Dynamic Escalator (Up to 1.8x for 90+ safety tokens)</span>
+              </label>
+            </div>
+          </div>
+          <div class="text-[10px] text-dim flex items-center justify-between bg-panel2/60 p-2 rounded-lg border border-border1 font-mono">
+            <span>LIVE JITO TIP FLOOR:</span>
+            <span id="jitoLiveTipFloor" class="text-accent font-semibold">Loading live floor...</span>
           </div>
         </div>
 
@@ -937,7 +965,8 @@
     let activeSymbol = "BONK";
     let activeTimeframe = "5m";
     let chartMode = "candles";
-    let entryPriceLine, tpPriceLine, slPriceLine;
+    let entryPriceLine, tpPriceLine, slPriceLine, bePriceLine;
+    let showOverlayLines = true;
 
     function initChart() {
       const container = document.getElementById("candleChartContainer");
@@ -1069,40 +1098,94 @@
       }
     }
 
+    function toggleChartOverlayLines() {
+      showOverlayLines = !showOverlayLines;
+      const btn = document.getElementById("btnToggleLines");
+      const txt = document.getElementById("linesToggleText");
+      if (btn && txt) {
+        txt.innerText = showOverlayLines ? "Lines: ON" : "Lines: OFF";
+        btn.className = showOverlayLines
+          ? "bg-panel border border-border1 hover:border-accent/40 px-2 py-1 rounded text-accent text-xs font-mono transition flex items-center gap-1"
+          : "bg-panel2 border border-border2 px-2 py-1 rounded text-dim hover:text-white text-xs font-mono transition flex items-center gap-1";
+      }
+      updateChartOverlayLines(activeMint);
+    }
+
     function updateChartOverlayLines(mint) {
-      if (entryPriceLine && candleSeries) candleSeries.removePriceLine(entryPriceLine);
-      if (tpPriceLine && candleSeries) candleSeries.removePriceLine(tpPriceLine);
-      if (slPriceLine && candleSeries) candleSeries.removePriceLine(slPriceLine);
+      if (entryPriceLine && candleSeries) { candleSeries.removePriceLine(entryPriceLine); entryPriceLine = null; }
+      if (tpPriceLine && candleSeries) { candleSeries.removePriceLine(tpPriceLine); tpPriceLine = null; }
+      if (slPriceLine && candleSeries) { candleSeries.removePriceLine(slPriceLine); slPriceLine = null; }
+      if (bePriceLine && candleSeries) { candleSeries.removePriceLine(bePriceLine); bePriceLine = null; }
 
+      const badge = document.getElementById("chartTargetsBadge");
       const pos = openPositions.find(p => p.token_mint === mint);
-      if (pos && candleSeries) {
-        entryPriceLine = candleSeries.createPriceLine({
-          price: pos.buy_price_sol,
-          color: '#3BA7FF',
-          lineWidth: 2,
-          lineStyle: 1,
-          axisLabelVisible: true,
-          title: `ENTRY (${pos.buy_price_sol.toFixed(8)})`,
-        });
 
-        tpPriceLine = candleSeries.createPriceLine({
-          price: pos.take_profit_price,
-          color: '#2FE39A',
-          lineWidth: 2,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: `TP TARGET (${pos.take_profit_price.toFixed(8)})`,
-        });
+      if (!pos || !candleSeries || !showOverlayLines) {
+        if (badge) badge.classList.add("hidden");
+        return;
+      }
 
-        slPriceLine = candleSeries.createPriceLine({
-          price: pos.stop_loss_price,
-          color: '#FF5F6D',
+      if (badge) {
+        badge.classList.remove("hidden");
+        document.getElementById("chartBadgeTp").innerText = pos.take_profit_price.toFixed(8);
+        document.getElementById("chartBadgeSl").innerText = pos.stop_loss_price.toFixed(8);
+        const beWrap = document.getElementById("chartBadgeBeWrap");
+        if (pos.breakeven_locked) {
+          beWrap.classList.remove("hidden");
+          beWrap.classList.add("flex");
+          document.getElementById("chartBadgeBe").innerText = pos.buy_price_sol.toFixed(8);
+        } else {
+          beWrap.classList.add("hidden");
+          beWrap.classList.remove("flex");
+        }
+      }
+
+      // 1. Entry Line (Gold)
+      entryPriceLine = candleSeries.createPriceLine({
+        price: pos.buy_price_sol,
+        color: '#F59E0B',
+        lineWidth: 2,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: `🎯 ENTRY (${pos.buy_price_sol.toFixed(8)})`,
+      });
+
+      // 2. Take Profit Line (Green)
+      const tpTitle = pos.scale_out_triggered ? `🚀 TP2 MOONBAG (${pos.take_profit_price.toFixed(8)})` : `🎯 TP TARGET (${pos.take_profit_price.toFixed(8)})`;
+      tpPriceLine = candleSeries.createPriceLine({
+        price: pos.take_profit_price,
+        color: '#2FE39A',
+        lineWidth: 2,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: tpTitle,
+      });
+
+      // 3. Breakeven Lock Line (Blue)
+      if (pos.breakeven_locked) {
+        bePriceLine = candleSeries.createPriceLine({
+          price: pos.buy_price_sol * 1.005,
+          color: '#3B82F6',
           lineWidth: 2,
-          lineStyle: 2,
+          lineStyle: 3,
           axisLabelVisible: true,
-          title: `SL TARGET (${pos.stop_loss_price.toFixed(8)})`,
+          title: `🛡️ BREAKEVEN LOCKED (0% Risk)`,
         });
       }
+
+      // 4. Trailing Stop / Stop Loss Line (Red)
+      const slTitle = pos.trailing_stop_active || pos.breakeven_locked
+        ? `⚡ TRAILING STOP (${pos.stop_loss_price.toFixed(8)})`
+        : `🛑 STOP LOSS (${pos.stop_loss_price.toFixed(8)})`;
+
+      slPriceLine = candleSeries.createPriceLine({
+        price: pos.stop_loss_price,
+        color: '#FF5F6D',
+        lineWidth: 2,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: slTitle,
+      });
     }
 
     function setChartTimeframe(tf) {
@@ -1548,6 +1631,8 @@
         document.getElementById("cfgTrailingStop").value = cfg.trailing_stop_pct || 15;
         document.getElementById("cfgUseJito").checked = !!cfg.use_jito;
         document.getElementById("cfgJitoTip").value = cfg.jito_tip_sol || 0.001;
+        document.getElementById("cfgEnableDynamicJitoTip").checked = cfg.enable_dynamic_jito_tip !== false;
+        document.getElementById("cfgMaxJitoTip").value = cfg.max_jito_tip_sol || 0.01;
         document.getElementById("cfgMaxDailyLoss").value = cfg.max_daily_loss_sol || 1.0;
         document.getElementById("cfgEnableScaleOut").checked = cfg.enable_scale_out !== false;
         document.getElementById("cfgEnableBreakevenLock").checked = cfg.enable_breakeven_lock !== false;
@@ -1560,8 +1645,24 @@
         document.getElementById("cfgTgChat").value = cfg.telegram_chat_id || "";
         document.getElementById("cfgBlacklistKeywords").value = (cfg.blacklist_keywords || []).join(", ");
         document.getElementById("cfgBlacklistCreators").value = (cfg.blacklist_creators || []).join(", ");
+        fetchJitoTipFloor();
       } catch (e) {}
       document.getElementById("settingsModal").classList.remove("hidden");
+    }
+
+    async function fetchJitoTipFloor() {
+      try {
+        const res = await fetch("/api/jito/tip-floor");
+        if (res.ok) {
+          const d = await res.json();
+          const f = d.tip_floors_sol || {};
+          const p25 = f.p25 ? f.p25.toFixed(6) : "0.000100";
+          const p50 = f.p50 ? f.p50.toFixed(6) : "0.000500";
+          const p75 = f.p75 ? f.p75.toFixed(6) : "0.001000";
+          const el = document.getElementById("jitoLiveTipFloor");
+          if (el) el.innerText = `P25: ${p25} | P50: ${p50} | P75: ${p75} SOL`;
+        }
+      } catch (e) {}
     }
 
     function closeSettingsModal() {
@@ -1590,6 +1691,8 @@
         priority_fee_level: document.getElementById("cfgPriorityFeeLevel").value,
         use_jito: document.getElementById("cfgUseJito").checked,
         jito_tip_sol: parseFloat(document.getElementById("cfgJitoTip").value) || 0.001,
+        enable_dynamic_jito_tip: document.getElementById("cfgEnableDynamicJitoTip").checked,
+        max_jito_tip_sol: parseFloat(document.getElementById("cfgMaxJitoTip").value) || 0.01,
         max_daily_loss_sol: parseFloat(document.getElementById("cfgMaxDailyLoss").value) || 1.0,
         discord_webhook_url: document.getElementById("cfgDiscord").value.trim() || null,
         telegram_bot_token: document.getElementById("cfgTgToken").value.trim() || null,

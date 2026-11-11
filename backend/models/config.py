@@ -23,6 +23,8 @@ class BotConfig(BaseModel):
     priority_fee_level: str = "fast"
     use_jito: bool = False
     jito_tip_sol: float = 0.001
+    enable_dynamic_jito_tip: bool = True
+    max_jito_tip_sol: float = 0.01
     
     # Profit & Risk Targets
     take_profit_pct: float = Field(default=50.0, ge=1.0)
