@@ -9,6 +9,7 @@ logger = logging.getLogger("MaguraBot.Raydium")
 
 RAYDIUM_AMM_PROGRAM = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
 DEXSCREENER_LATEST_PROFILES = "https://api.dexscreener.com/token-profiles/latest/v1"
+DEXSCREENER_LATEST_BOOSTS = "https://api.dexscreener.com/token-boosts/latest/v1"
 
 
 class RaydiumListener:
@@ -40,40 +41,47 @@ class RaydiumListener:
         logger.info("Raydium new pool listener stopped")
 
     async def _poll_loop(self):
-        self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5))
+        self._session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=5),
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) MaguraBot/1.0"}
+        )
+        endpoints = [DEXSCREENER_LATEST_PROFILES, DEXSCREENER_LATEST_BOOSTS]
         while self._running:
-            try:
-                # Fetch recently created Solana token pools from DEXScreener
-                async with self._session.get(DEXSCREENER_LATEST_PROFILES) as resp:
-                    if resp.status == 200:
-                        profiles = await resp.json()
-                        for p in profiles:
-                            if p.get("chainId") != "solana":
-                                continue
-                            mint = p.get("tokenAddress")
-                            if not mint or mint in self._seen_mints:
-                                continue
-                            self._seen_mints.add(mint)
-                            
-                            desc = (p.get("description") or "").strip()
-                            symbol = p.get("symbol")
-                            if not symbol:
-                                first_word = desc.split()[0] if desc else ""
-                                symbol = first_word[:8].upper() if (first_word and first_word.isalnum()) else f"RAY-{mint[:4].upper()}"
+            for ep in endpoints:
+                if not self._running:
+                    break
+                try:
+                    async with self._session.get(ep) as resp:
+                        if resp.status == 200:
+                            items = await resp.json()
+                            if isinstance(items, list):
+                                for p in items:
+                                    if p.get("chainId") != "solana":
+                                        continue
+                                    mint = p.get("tokenAddress")
+                                    if not mint or mint in self._seen_mints:
+                                        continue
+                                    self._seen_mints.add(mint)
+                                    
+                                    desc = (p.get("description") or "").strip()
+                                    symbol = p.get("symbol")
+                                    if not symbol:
+                                        first_word = desc.split()[0] if desc else ""
+                                        symbol = first_word[:8].upper() if (first_word and first_word.isalnum()) else f"RAY-{mint[:4].upper()}"
 
-                            token = TokenData(
-                                mint=mint,
-                                symbol=symbol,
-                                name=(desc[:32] if desc else f"Raydium Token {symbol}"),
-                                source=LaunchpadType.RAYDIUM,
-                                bonding_curve_pct=100.0,
-                                is_migrated=True,
-                                raw_metadata=p,
-                            )
-                            self.on_token_discovered(token)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.debug(f"Raydium poll tick error: {e}")
-                
-            await asyncio.sleep(4)
+                                    token = TokenData(
+                                        mint=mint,
+                                        symbol=symbol,
+                                        name=(desc[:32] if desc else f"Raydium Token {symbol}"),
+                                        source=LaunchpadType.RAYDIUM,
+                                        bonding_curve_pct=100.0,
+                                        is_migrated=True,
+                                        raw_metadata=p,
+                                    )
+                                    self.on_token_discovered(token)
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.debug(f"Raydium poll tick error ({ep}): {e}")
+
+            await asyncio.sleep(3)
