@@ -94,5 +94,6 @@ class PumpPortalClient:
             except asyncio.CancelledError:
                 break
             except Exception as conn_err:
-                logger.warning(f"PumpPortal connection dropped: {conn_err}. Reconnecting in 3s...")
-                await asyncio.sleep(3)
+                delay = 30 if "403" in str(conn_err) else 5
+                logger.warning(f"PumpPortal connection dropped: {conn_err}. Reconnecting in {delay}s...")
+                await asyncio.sleep(delay)

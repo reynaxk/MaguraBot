@@ -10,6 +10,7 @@ from backend.models.order import (
     PositionStatus,
     ExitReason,
     Order,
+    OrderStatus,
 )
 from backend.models.token import TokenData
 from backend.services.solana_client import SolanaClient
