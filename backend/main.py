@@ -3,9 +3,11 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
+import csv
+import io
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from backend.engine.sniper import SniperEngine
@@ -14,6 +16,7 @@ from backend.models.events import BotEvent
 from backend.models.order import BotMode
 from backend.services.candles import CandleService
 from backend.services.solana_client import SolanaClient
+from backend.engine.backtester import Backtester, BacktestRequest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -156,6 +159,38 @@ async def get_positions():
 async def get_trades():
     trades = [p.model_dump() for p in engine.closed_trades]
     return trades
+
+
+@app.get("/api/trades/export")
+async def export_trades_csv():
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID", "Symbol", "Mint", "Status", "Invested_SOL",
+        "Tokens_Held", "Entry_Price_SOL", "Exit_Price_SOL",
+        "Realized_PnL_SOL", "PnL_Pct", "Opened_At", "Closed_At"
+    ])
+    for p in engine.closed_trades:
+        writer.writerow([
+            p.id,
+            p.symbol,
+            p.token_mint,
+            p.status.value if hasattr(p.status, "value") else str(p.status),
+            round(p.sol_invested, 5),
+            p.tokens_held,
+            f"{p.entry_price_sol:.9f}",
+            f"{p.current_price_sol:.9f}",
+            round(p.realized_pnl_sol, 5),
+            round(p.pnl_pct, 2),
+            p.opened_at,
+            p.closed_at or ""
+        ])
+    output.seek(0)
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=magurabot_trades.csv"}
+    )
 
 
 @app.get("/api/analytics")
@@ -322,6 +357,12 @@ class ManualSnipeRequest(BaseModel):
 async def manual_snipe(req: ManualSnipeRequest):
     asyncio.create_task(engine.manual_snipe(req.mint, req.symbol, req.amount_sol))
     return {"status": "queued", "mint": req.mint}
+
+
+@app.post("/api/backtest/run")
+async def run_backtest(req: BacktestRequest):
+    result = await asyncio.to_thread(Backtester.run_simulation, req)
+    return result.model_dump()
 
 
 # ----------------------------------------------------

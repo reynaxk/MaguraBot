@@ -8,6 +8,7 @@ class LaunchpadType(str, Enum):
     PUMPFUN = "pumpfun"
     RAYDIUM = "raydium"
     JUPITER = "jupiter"
+    METEORA = "meteora"
 
 
 class TokenSafetyScore(BaseModel):

@@ -79,7 +79,33 @@ class TestMaguraBotAPI(unittest.TestCase):
         self.assertIn("solscan", data["links"])
         self.assertIn("dexscreener", data["links"])
 
+    def test_backtest_endpoint(self):
+        payload = {
+            "initial_balance_sol": 10.0,
+            "buy_amount_sol": 0.1,
+            "take_profit_pct": 50.0,
+            "stop_loss_pct": 20.0,
+            "trailing_stop_pct": 15.0,
+            "enable_scale_out": True,
+            "simulated_token_count": 20,
+        }
+        res = self.client.post("/api/backtest/run", json=payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("total_trades", data)
+        self.assertIn("win_rate_pct", data)
+        self.assertIn("equity_curve", data)
+        self.assertIn("net_pnl_sol", data)
+        self.assertTrue(len(data["equity_curve"]) > 0)
 
+
+    def test_trades_export_endpoint(self):
+        res = self.client.get("/api/trades/export")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers["content-type"], "text/csv; charset=utf-8")
+        self.assertIn("magurabot_trades.csv", res.headers.get("content-disposition", ""))
+        self.assertIn("Symbol", res.text)
+        self.assertIn("Realized_PnL_SOL", res.text)
 
 
 if __name__ == "__main__":

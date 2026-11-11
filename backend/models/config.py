@@ -41,6 +41,7 @@ class BotConfig(BaseModel):
     # Launchpad Feeds
     enable_pumpfun: bool = True
     enable_raydium: bool = True
+    enable_meteora: bool = True
     
     # Simulated initial paper wallet
     paper_wallet_sol: float = 10.0

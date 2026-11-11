@@ -165,6 +165,17 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         self.assertIn(ExitReason.PARTIAL_TAKE_PROFIT, triggered_reasons)
         self.assertTrue(pos.scale_out_triggered)
 
+    async def test_meteora_listener_init(self):
+        """Verify MeteoraListener instantiates and cleanly starts and stops."""
+        from backend.services.meteora import MeteoraListener
+        discovered = []
+        listener = MeteoraListener(lambda t: discovered.append(t))
+        self.assertFalse(listener._running)
+        await listener.start()
+        self.assertTrue(listener._running)
+        await listener.stop()
+        self.assertFalse(listener._running)
+
 
 if __name__ == "__main__":
     unittest.main()

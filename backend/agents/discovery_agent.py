@@ -5,6 +5,7 @@ from backend.models.config import BotConfig
 from backend.models.token import TokenData
 from backend.services.pumpportal import PumpPortalClient
 from backend.services.raydium import RaydiumListener
+from backend.services.meteora import MeteoraListener
 
 logger = logging.getLogger("MaguraBot.DiscoveryAgent")
 
@@ -15,6 +16,7 @@ class DiscoveryAgent:
         self.on_token_discovered = on_token_discovered
         self.pump_client: Optional[PumpPortalClient] = None
         self.raydium_listener: Optional[RaydiumListener] = None
+        self.meteora_listener: Optional[MeteoraListener] = None
         self._running = False
 
     async def start(self):
@@ -33,7 +35,11 @@ class DiscoveryAgent:
             )
             await self.raydium_listener.start()
 
-        logger.info("DiscoveryAgent initialized across Pump.fun and Raydium")
+        if getattr(self.config, "enable_meteora", True):
+            self.meteora_listener = MeteoraListener(self._handle_discovered_token)
+            await self.meteora_listener.start()
+
+        logger.info("DiscoveryAgent initialized across Pump.fun, Raydium, and Meteora")
 
     async def stop(self):
         self._running = False
@@ -41,6 +47,8 @@ class DiscoveryAgent:
             await self.pump_client.stop()
         if self.raydium_listener:
             await self.raydium_listener.stop()
+        if self.meteora_listener:
+            await self.meteora_listener.stop()
         logger.info("DiscoveryAgent stopped")
 
     def _handle_discovered_token(self, token: TokenData):

@@ -17,6 +17,8 @@ from backend.services.security import SecurityService
 from backend.services.jupiter import JupiterService
 from backend.services.alerts import AlertService
 from backend.services.jito import JitoService
+from backend.services.telegram_bot import TelegramBotController
+from backend.db.storage import StorageService
 from backend.engine.executor import TradeExecutor
 from backend.engine.position_tracker import PositionTracker
 from backend.agents.discovery_agent import DiscoveryAgent
@@ -35,10 +37,16 @@ class SniperEngine:
         self.security = SecurityService(self.solana_client)
         self.jupiter = JupiterService()
         self.jito = JitoService()
+        self.storage = StorageService()
         self.alerts = AlertService(
             telegram_bot_token=self.config.telegram_bot_token,
             telegram_chat_id=self.config.telegram_chat_id,
             discord_webhook_url=self.config.discord_webhook_url,
+        )
+        self.tg_controller = TelegramBotController(
+            bot_token=self.config.telegram_bot_token,
+            chat_id=self.config.telegram_chat_id,
+            engine=self,
         )
         self.executor = TradeExecutor(self.config, self.solana_client, self.jupiter, self.jito)
         
@@ -81,6 +89,7 @@ class SniperEngine:
         
         await self.tracker.start()
         await self.discovery.start()
+        await self.tg_controller.start()
         
         self.broadcast(
             EventType.BOT_STATE_CHANGED,
@@ -95,6 +104,7 @@ class SniperEngine:
         
         await self.discovery.stop()
         await self.tracker.stop()
+        await self.tg_controller.stop()
         await self.solana_client.close()
         await self.security.close()
         await self.jupiter.close()
@@ -186,6 +196,7 @@ class SniperEngine:
         self.tracker.add_position(pos)
         self.broadcast(EventType.ORDER_EXECUTED, order.model_dump())
         self.broadcast(EventType.POSITION_UPDATED, pos.model_dump())
+        asyncio.create_task(self.storage.save_order(order.model_dump()))
         asyncio.create_task(
             self.alerts.send_snipe_alert(
                 pos.symbol, pos.token_mint, pos.sol_invested, self.config.mode.value
@@ -259,6 +270,8 @@ class SniperEngine:
         self.closed_trades.insert(0, pos)
         if len(self.closed_trades) > 100:
             self.closed_trades.pop()
+
+        asyncio.create_task(self.storage.save_trade(pos.model_dump()))
 
         self.broadcast(
             EventType.POSITION_CLOSED,
