@@ -188,6 +188,7 @@
             <button onclick="setRadarFilter('raydium')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="raydium">Raydium</button>
             <button onclick="setRadarFilter('meteora')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="meteora">Meteora</button>
             <button onclick="setRadarFilter('safe')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="safe">Safe (70+)</button>
+            <button onclick="setRadarFilter('unfreezable')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="unfreezable">🔒 Non-Freezable</button>
           </div>
         </div>
       </div>
@@ -1319,6 +1320,7 @@
         if (radarFilter === "raydium" && src !== "raydium") return false;
         if (radarFilter === "meteora" && src !== "meteora") return false;
         if (radarFilter === "safe" && (t.safety?.score || 0) < 70) return false;
+        if (radarFilter === "unfreezable" && t.safety && t.safety.freeze_authority_revoked === false) return false;
         return true;
       });
 
@@ -1358,16 +1360,22 @@
       const score = (token.safety && typeof token.safety.score === 'number') ? token.safety.score : 80;
       const scoreColor = score >= 70 ? 'text-accent bg-accent/10 border-accent/30' : (score >= 40 ? 'text-warn bg-warn/10 border-warn/30' : 'text-danger bg-danger/10 border-danger/30');
 
+      const freezeRevoked = token.safety ? token.safety.freeze_authority_revoked !== false : true;
+      const freezeBadge = freezeRevoked
+        ? `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-accent/15 border border-accent/40 text-accent font-semibold" title="Freeze Authority Revoked: Honeypot-Free">🔒 Non-Freezable</span>`
+        : `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-danger/25 border border-danger/60 text-danger font-bold animate-pulse" title="WARNING: Freeze Authority Active! Creator can freeze transfers (Honeypot)">⚠️ FREEZABLE</span>`;
+
       card.innerHTML = `
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg bg-panel border border-border2 flex items-center justify-center font-bold text-xs uppercase font-mono text-white group-hover:text-accent group-hover:border-accent/40 transition">
             ${symbol.slice(0, 4)}
           </div>
           <div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5 flex-wrap">
               <span class="font-bold text-sm text-white">${symbol}</span>
               <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${scoreColor}">${score}/100</span>
               <span class="text-[10px] text-accent/80 bg-accent/5 px-1 py-0.2 rounded font-mono">${source}</span>
+              ${freezeBadge}
             </div>
             <div class="text-[11px] text-dim font-mono mt-0.5 truncate max-w-[150px]" title="${name}">
               ${name}
@@ -1673,6 +1681,12 @@
     }
 
     async function manualSnipe(mint, symbol) {
+      const found = allRecentTokens.find(t => t.mint === mint);
+      if (found && found.safety && found.safety.freeze_authority_revoked === false) {
+        if (!confirm(`⚠️ ВНИМАНИЕ: За ${symbol} FREEZE AUTHORITY е АКТИВЕН!\n\nСъздателят може да замрази токените в портфейла ти (Honeypot измама).\nСигурен ли си, че искаш да го купиш?`)) {
+          return;
+        }
+      }
       addLog(`Initiating manual snipe on ${symbol} (${mint.slice(0, 6)}...)...`);
       try {
         const res = await fetch("/api/snipe", {
@@ -1681,7 +1695,7 @@
           body: JSON.stringify({ mint, symbol })
         });
         const data = await res.json();
-        addLog(`Manual snipe queued: ${data.status}`, "accent");
+        addLog(`Manual snipe queued: ${data.status} for ${symbol}`, "accent");
       } catch (e) {
         addLog(`Manual snipe failed: ${e}`, "danger");
       }

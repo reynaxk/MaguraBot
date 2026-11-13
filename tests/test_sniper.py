@@ -367,6 +367,7 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         from unittest.mock import AsyncMock
         engine = SniperEngine(self.config)
         engine.config.max_positions = 2
+        engine.config.auto_snipe = True
 
         # Mock trade_agent to focus purely on testing concurrency slot reservation
         engine.trade_agent.can_snipe = lambda token, count: (count < engine.config.max_positions, "Slot available" if count < engine.config.max_positions else "Max positions reached")

@@ -13,7 +13,9 @@ class BotConfig(BaseModel):
         default_factory=lambda: BotMode(os.getenv("BOT_MODE", "paper").lower())
     )
     is_running: bool = True
-    auto_snipe: bool = True
+    auto_snipe: bool = Field(
+        default_factory=lambda: os.getenv("AUTO_SNIPE", "false").lower() in ("true", "1")
+    )
     max_daily_loss_sol: float = 1.0
     
     # RPC & Network
