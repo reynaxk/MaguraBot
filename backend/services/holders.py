@@ -30,27 +30,35 @@ class HoldersScanner:
             res = await self.solana_client.rpc_call("getTokenLargestAccounts", [mint])
             accounts = (res.get("value") or []) if isinstance(res, dict) else []
             
+            # Query supply to get exact percentages
+            supply_res = await self.solana_client.rpc_call("getTokenSupply", [mint])
+            total_supply = 0.0
+            if isinstance(supply_res, dict) and "value" in supply_res:
+                total_supply = float(supply_res["value"].get("uiAmount") or 0.0)
+
             total_supply_pct_top10 = 0.0
             top_holders: List[Dict[str, Any]] = []
 
             for idx, acc in enumerate(accounts[:10]):
                 amount = float(acc.get("uiAmount") or 0.0)
-                pct = float(acc.get("uiAmountString") or 0.0)  # Approximation or raw
+                pct = (amount / total_supply * 100.0) if total_supply > 0 else 0.0
                 address = acc.get("address", f"Holder-{idx+1}")
                 top_holders.append({
                     "rank": idx + 1,
                     "address": address,
                     "amount": amount,
+                    "pct": round(pct, 2),
                 })
+                # Exclude the primary bonding curve / AMM pool if it holds >50% of supply
+                if idx > 0 or pct < 50.0:
+                    total_supply_pct_top10 += pct
 
-            # Calculate concentration risk
-            is_concentrated = len(accounts) > 0 and len(accounts) < 10
-            
             return {
                 "mint": mint,
                 "holders_sampled": len(accounts),
                 "top_holders": top_holders,
-                "is_whale_concentrated": is_concentrated,
+                "top10_holding_pct": round(total_supply_pct_top10, 2),
+                "is_whale_concentrated": total_supply_pct_top10 > 30.0 or len(accounts) < 10,
                 "status": "success",
             }
         except Exception as e:
@@ -59,6 +67,7 @@ class HoldersScanner:
                 "mint": mint,
                 "holders_sampled": 0,
                 "top_holders": [],
+                "top10_holding_pct": 0.0,
                 "is_whale_concentrated": False,
                 "status": "unavailable",
             }

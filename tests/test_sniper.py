@@ -135,6 +135,7 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(passed2)
     async def test_scale_out_execution(self):
         """When scale out is enabled, Take Profit should trigger PARTIAL_TAKE_PROFIT."""
+        self.config.enable_scale_out = True
         triggered_reasons = []
 
         async def mock_exit_callback(pos, reason):
@@ -166,6 +167,41 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn(ExitReason.PARTIAL_TAKE_PROFIT, triggered_reasons)
         self.assertTrue(pos.scale_out_triggered)
+
+    async def test_full_take_profit_without_moonbag(self):
+        """When enable_scale_out is False, Take Profit must trigger full TAKE_PROFIT and sell 100%."""
+        self.config.enable_scale_out = False
+        triggered_reasons = []
+
+        async def mock_exit_callback(pos, reason):
+            triggered_reasons.append(reason)
+
+        tracker = PositionTracker(self.config, mock_exit_callback)
+        pos = Position(
+            token_mint="TestFullTP123",
+            symbol="FULL",
+            name="Full Exit Token",
+            mode=BotMode.PAPER,
+            buy_order_id="b2",
+            buy_price_sol=0.0001,
+            buy_price_usd=0.018,
+            sol_invested=0.1,
+            tokens_held=1000.0,
+            current_price_sol=0.0001,
+            current_price_usd=0.018,
+            peak_price_sol=0.0001,
+            take_profit_price=0.00015,
+            stop_loss_price=0.00008,
+        )
+        tracker.add_position(pos)
+
+        # Simulate +60% pump
+        pos.current_price_sol = 0.00016
+        await tracker._evaluate_position(pos)
+
+        self.assertIn(ExitReason.TAKE_PROFIT, triggered_reasons)
+        self.assertNotIn(ExitReason.PARTIAL_TAKE_PROFIT, triggered_reasons)
+        self.assertFalse(pos.scale_out_triggered)
 
     async def test_meteora_listener_init(self):
         """Verify MeteoraListener instantiates and cleanly starts and stops."""

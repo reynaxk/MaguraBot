@@ -48,7 +48,9 @@ class BotConfig(BaseModel):
     take_profit_pct: float = Field(default=50.0, ge=1.0)
     stop_loss_pct: float = Field(default=20.0, ge=1.0, le=99.0)
     trailing_stop_pct: float = Field(default=15.0, ge=1.0)
-    enable_scale_out: bool = True
+    enable_scale_out: bool = Field(
+        default_factory=lambda: os.getenv("ENABLE_SCALE_OUT", "false").lower() in ("true", "1")
+    )
     enable_breakeven_lock: bool = True
     breakeven_trigger_pct: float = Field(default=20.0, ge=5.0)
     max_hold_time_minutes: int = Field(default=60, ge=1)
@@ -59,7 +61,16 @@ class BotConfig(BaseModel):
     require_mint_revoked: bool = True
     require_freeze_revoked: bool = True
     min_safety_score: int = Field(
-        default_factory=lambda: int(os.getenv("MIN_SAFETY_SCORE") or 70)
+        default_factory=lambda: int(os.getenv("MIN_SAFETY_SCORE") or 75)
+    )
+    min_holders: int = Field(
+        default_factory=lambda: int(os.getenv("MIN_HOLDERS") or 10)
+    )
+    max_top10_holding_pct: float = Field(
+        default_factory=lambda: float(os.getenv("MAX_TOP10_HOLDING_PCT") or 30.0)
+    )
+    require_socials: bool = Field(
+        default_factory=lambda: os.getenv("REQUIRE_SOCIALS", "true").lower() in ("true", "1")
     )
     
     # Launchpad Feeds

@@ -19,6 +19,7 @@ from backend.services.security import SecurityService
 from backend.services.jupiter import JupiterService
 from backend.services.alerts import AlertService
 from backend.services.jito import JitoService
+from backend.services.holders import HoldersScanner
 from backend.services.telegram_bot import TelegramBotController
 from backend.db.storage import StorageService
 from backend.engine.executor import TradeExecutor
@@ -37,6 +38,7 @@ class SniperEngine:
         # Core services
         self.solana_client = SolanaClient(self.config.solana_rpc_url)
         self.security = SecurityService(self.solana_client)
+        self.holders_scanner = HoldersScanner(self.solana_client)
         self.jupiter = JupiterService()
         self.jito = JitoService()
         self.storage = StorageService()
@@ -57,7 +59,7 @@ class SniperEngine:
         
         # Agents
         self.discovery = DiscoveryAgent(self.config, self.handle_token_discovery)
-        self.risk_agent = RiskAgent(self.config, self.security)
+        self.risk_agent = RiskAgent(self.config, self.security, holders_scanner=self.holders_scanner)
         self.trade_agent = TradeAgent(self.config)
         
         # State stores
@@ -127,6 +129,7 @@ class SniperEngine:
         await self.tg_controller.stop()
         await self.solana_client.close()
         await self.security.close()
+        await self.holders_scanner.close()
         await self.jupiter.close()
         await self.jito.close()
         await self.alerts.close()

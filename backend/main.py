@@ -169,6 +169,9 @@ class ConfigUpdateRequest(BaseModel):
     discord_webhook_url: Optional[str] = None
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
+    min_holders: Optional[int] = None
+    max_top10_holding_pct: Optional[float] = None
+    require_socials: Optional[bool] = None
     blacklist_keywords: Optional[list[str]] = None
     blacklist_creators: Optional[list[str]] = None
 

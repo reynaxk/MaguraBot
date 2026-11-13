@@ -1,16 +1,23 @@
 import logging
-from typing import Tuple
+from typing import Tuple, Optional
 from backend.models.config import BotConfig
 from backend.models.token import TokenData
 from backend.services.security import SecurityService
+from backend.services.holders import HoldersScanner
 
 logger = logging.getLogger("MaguraBot.RiskAgent")
 
 
 class RiskAgent:
-    def __init__(self, config: BotConfig, security_service: SecurityService):
+    def __init__(
+        self,
+        config: BotConfig,
+        security_service: SecurityService,
+        holders_scanner: Optional[HoldersScanner] = None,
+    ):
         self.config = config
         self.security = security_service
+        self.holders_scanner = holders_scanner
 
     async def evaluate(self, token: TokenData) -> Tuple[bool, str]:
         """Perform sub-second multi-factor rug check on incoming token."""
@@ -54,6 +61,34 @@ class RiskAgent:
         # 7. Check creator blacklist
         if token.creator and token.creator in self.config.blacklist_creators:
             return False, f"Rejected: Creator {token.creator[:8]} is blacklisted"
+
+        # 8. Check social presence (anti-throwaway token)
+        if getattr(self.config, "require_socials", True):
+            has_socials = False
+            raw = token.raw_metadata or {}
+            # Check direct social keys from PumpPortal or DexScreener
+            if any(raw.get(k) for k in ("twitter", "telegram", "website")):
+                has_socials = True
+            elif raw.get("links") and len(raw["links"]) > 0:
+                has_socials = True
+            elif raw.get("info", {}).get("socials") or raw.get("info", {}).get("websites"):
+                has_socials = True
+
+            if not has_socials:
+                return False, "Rejected: No verified socials (Twitter/Telegram/Website). High throwaway dump risk."
+
+        # 9. Check on-chain holder distribution
+        if self.holders_scanner and getattr(self.config, "min_holders", 0) > 0:
+            holders_info = await self.holders_scanner.analyze_holders(token.mint)
+            if holders_info.get("status") == "success":
+                sampled = holders_info.get("holders_sampled", 0)
+                if sampled < self.config.min_holders:
+                    return False, f"Rejected: Only {sampled} holders detected (minimum {self.config.min_holders} required)"
+
+                top10_pct = holders_info.get("top10_holding_pct", 0.0)
+                max_top10 = getattr(self.config, "max_top10_holding_pct", 30.0)
+                if top10_pct > max_top10:
+                    return False, f"Rejected: Top holders control {top10_pct:.1f}% of supply (exceeds max {max_top10}%)"
 
         logger.info(f"Token {token.symbol} [{token.mint[:8]}...] PASSED risk evaluation (Score: {safety.score})")
         return True, "Passed all safety checks"

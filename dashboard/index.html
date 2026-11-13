@@ -440,6 +440,20 @@
               <label class="block text-dim mb-1">Min Safety Score (0-100)</label>
               <input id="cfgMinSafety" type="number" min="0" max="100" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
             </div>
+            <div>
+              <label class="block text-dim mb-1">Min Holders Required</label>
+              <input id="cfgMinHolders" type="number" min="0" max="50" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Max Top 10 Holders %</label>
+              <input id="cfgMaxTop10Pct" type="number" min="5" max="90" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+          </div>
+          <div class="pt-2">
+            <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
+              <input id="cfgRequireSocials" type="checkbox" checked class="accent-accent" />
+              <span class="text-white text-[11px]">🛡️ Require Verified Socials (Reject throwaway tokens without Twitter/Telegram/Website)</span>
+            </label>
           </div>
         </div>
 
@@ -462,8 +476,8 @@
           </div>
           <div class="pt-1 space-y-1.5">
             <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
-              <input id="cfgEnableScaleOut" type="checkbox" checked class="accent-accent" />
-              <span class="text-white text-[11px]">Auto-Scale Out (Sell 50% at TP1 to secure principal, keep 50% Moonbag with Trailing Stop)</span>
+              <input id="cfgEnableScaleOut" type="checkbox" class="accent-accent" />
+              <span class="text-white text-[11px]">Auto-Scale Out (Sell 50% at TP1 to secure principal, keep 50% Moonbag with Trailing Stop. Leave OFF to sell 100% on Take Profit)</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
               <input id="cfgEnableBreakevenLock" type="checkbox" checked class="accent-accent" />
@@ -1740,7 +1754,10 @@
         document.getElementById("cfgBuyAmount").value = cfg.buy_amount_sol || 0.05;
         document.getElementById("cfgMaxPositions").value = cfg.max_positions || 10;
         document.getElementById("cfgSlippage").value = cfg.slippage_bps || 500;
-        document.getElementById("cfgMinSafety").value = cfg.min_safety_score || 70;
+        document.getElementById("cfgMinSafety").value = cfg.min_safety_score || 75;
+        document.getElementById("cfgMinHolders").value = cfg.min_holders !== undefined ? cfg.min_holders : 10;
+        document.getElementById("cfgMaxTop10Pct").value = cfg.max_top10_holding_pct !== undefined ? cfg.max_top10_holding_pct : 30;
+        document.getElementById("cfgRequireSocials").checked = cfg.require_socials !== false;
         document.getElementById("cfgTakeProfit").value = cfg.take_profit_pct || 50;
         document.getElementById("cfgStopLoss").value = cfg.stop_loss_pct || 20;
         document.getElementById("cfgTrailingStop").value = cfg.trailing_stop_pct || 15;
@@ -1749,7 +1766,7 @@
         document.getElementById("cfgEnableDynamicJitoTip").checked = cfg.enable_dynamic_jito_tip !== false;
         document.getElementById("cfgMaxJitoTip").value = cfg.max_jito_tip_sol || 0.01;
         document.getElementById("cfgMaxDailyLoss").value = cfg.max_daily_loss_sol || 1.0;
-        document.getElementById("cfgEnableScaleOut").checked = cfg.enable_scale_out !== false;
+        document.getElementById("cfgEnableScaleOut").checked = Boolean(cfg.enable_scale_out);
         document.getElementById("cfgEnableBreakevenLock").checked = cfg.enable_breakeven_lock !== false;
         document.getElementById("cfgEnablePump").checked = cfg.enable_pumpfun !== false;
         document.getElementById("cfgEnableRaydium").checked = cfg.enable_raydium !== false;
@@ -1794,7 +1811,10 @@
         buy_amount_sol: parseFloat(document.getElementById("cfgBuyAmount").value) || 0.05,
         max_positions: parseInt(document.getElementById("cfgMaxPositions").value) || 10,
         slippage_bps: parseInt(document.getElementById("cfgSlippage").value) || 500,
-        min_safety_score: parseInt(document.getElementById("cfgMinSafety").value) || 70,
+        min_safety_score: parseInt(document.getElementById("cfgMinSafety").value) || 75,
+        min_holders: parseInt(document.getElementById("cfgMinHolders").value) || 10,
+        max_top10_holding_pct: parseFloat(document.getElementById("cfgMaxTop10Pct").value) || 30.0,
+        require_socials: document.getElementById("cfgRequireSocials").checked,
         take_profit_pct: parseFloat(document.getElementById("cfgTakeProfit").value) || 50,
         stop_loss_pct: parseFloat(document.getElementById("cfgStopLoss").value) || 20,
         trailing_stop_pct: parseFloat(document.getElementById("cfgTrailingStop").value) || 15,
