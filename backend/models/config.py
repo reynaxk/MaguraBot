@@ -29,10 +29,10 @@ class BotConfig(BaseModel):
     
     # Trade Execution
     buy_amount_sol: float = Field(
-        default_factory=lambda: float(os.getenv("DEFAULT_BUY_AMOUNT_SOL") or os.getenv("BUY_AMOUNT_SOL") or 0.03)
+        default_factory=lambda: float(os.getenv("DEFAULT_BUY_AMOUNT_SOL") or os.getenv("BUY_AMOUNT_SOL") or 0.05)
     )
     max_positions: int = Field(
-        default_factory=lambda: int(os.getenv("MAX_POSITIONS") or 3)
+        default_factory=lambda: int(os.getenv("MAX_POSITIONS") or 10)
     )
     slippage_bps: int = Field(default=500, ge=50, le=5000)
     priority_fee_microlamports: int = Field(default=250000, ge=0)
@@ -59,7 +59,7 @@ class BotConfig(BaseModel):
     require_mint_revoked: bool = True
     require_freeze_revoked: bool = True
     min_safety_score: int = Field(
-        default_factory=lambda: int(os.getenv("MIN_SAFETY_SCORE") or 75)
+        default_factory=lambda: int(os.getenv("MIN_SAFETY_SCORE") or 70)
     )
     
     # Launchpad Feeds

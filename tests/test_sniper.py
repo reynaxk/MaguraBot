@@ -102,8 +102,8 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         can_snipe, _ = self.trade_agent.can_snipe(token, current_position_count=2)
         self.assertTrue(can_snipe)
 
-        # At max positions (5 >= 5)
-        can_snipe_full, reason = self.trade_agent.can_snipe(token, current_position_count=5)
+        # At max positions
+        can_snipe_full, reason = self.trade_agent.can_snipe(token, current_position_count=self.config.max_positions)
         self.assertFalse(can_snipe_full)
         self.assertIn("Max open positions reached", reason)
 

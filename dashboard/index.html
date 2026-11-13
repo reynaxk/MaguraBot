@@ -187,7 +187,7 @@
             <button onclick="setRadarFilter('pumpfun')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="pumpfun">Pump.fun</button>
             <button onclick="setRadarFilter('raydium')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="raydium">Raydium</button>
             <button onclick="setRadarFilter('meteora')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="meteora">Meteora</button>
-            <button onclick="setRadarFilter('safe')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="safe">Safe (80+)</button>
+            <button onclick="setRadarFilter('safe')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="safe">Safe (70+)</button>
           </div>
         </div>
       </div>
@@ -1304,7 +1304,7 @@
         if (radarFilter === "pumpfun" && src !== "pumpfun") return false;
         if (radarFilter === "raydium" && src !== "raydium") return false;
         if (radarFilter === "meteora" && src !== "meteora") return false;
-        if (radarFilter === "safe" && (t.safety?.score || 0) < 80) return false;
+        if (radarFilter === "safe" && (t.safety?.score || 0) < 70) return false;
         return true;
       });
 
@@ -1488,7 +1488,7 @@
       }
     }
 
-    let maxPositionsLimit = 5;
+    let maxPositionsLimit = 10;
 
     function renderPositions(positions) {
       openPositions.length = 0;
@@ -1738,7 +1738,7 @@
         const res = await fetch("/api/config");
         const cfg = await res.json();
         document.getElementById("cfgBuyAmount").value = cfg.buy_amount_sol || 0.05;
-        document.getElementById("cfgMaxPositions").value = cfg.max_positions || 5;
+        document.getElementById("cfgMaxPositions").value = cfg.max_positions || 10;
         document.getElementById("cfgSlippage").value = cfg.slippage_bps || 500;
         document.getElementById("cfgMinSafety").value = cfg.min_safety_score || 70;
         document.getElementById("cfgTakeProfit").value = cfg.take_profit_pct || 50;
@@ -1792,7 +1792,7 @@
 
       const payload = {
         buy_amount_sol: parseFloat(document.getElementById("cfgBuyAmount").value) || 0.05,
-        max_positions: parseInt(document.getElementById("cfgMaxPositions").value) || 5,
+        max_positions: parseInt(document.getElementById("cfgMaxPositions").value) || 10,
         slippage_bps: parseInt(document.getElementById("cfgSlippage").value) || 500,
         min_safety_score: parseInt(document.getElementById("cfgMinSafety").value) || 70,
         take_profit_pct: parseFloat(document.getElementById("cfgTakeProfit").value) || 50,
