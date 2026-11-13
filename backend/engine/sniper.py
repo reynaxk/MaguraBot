@@ -53,7 +53,7 @@ class SniperEngine:
         self.executor = TradeExecutor(self.config, self.solana_client, self.jupiter, self.jito)
         
         # Position Tracker
-        self.tracker = PositionTracker(self.config, self._handle_auto_exit)
+        self.tracker = PositionTracker(self.config, self._handle_auto_exit, jupiter=self.executor.jupiter)
         
         # Agents
         self.discovery = DiscoveryAgent(self.config, self.handle_token_discovery)
@@ -254,35 +254,35 @@ class SniperEngine:
                 amount_tokens=tokens_to_sell,
                 current_price_sol=pos.current_price_sol,
             )
-            if order and order.status == OrderStatus.FILLED:
-                pos.tokens_held -= tokens_to_sell
-                sol_earned = order.amount_sol
-                cost_sold = pos.sol_invested * 0.5
-                realized_gain = sol_earned - cost_sold
-                pos.realized_pnl_sol += realized_gain
-                pos.sol_invested -= cost_sold
-                pos.take_profit_price = pos.take_profit_price * 1.5
-                pos.trailing_stop_active = True
-
-                self.broadcast(
-                    EventType.POSITION_UPDATED,
-                    pos.model_dump(),
-                    f"Scale-out TP1 on {pos.symbol}: secured 50% profit (+{realized_gain:.4f} SOL). Moonbag running!",
+            if not order or order.status != OrderStatus.FILLED or not order.tx_hash:
+                logger.warning(
+                    f"[SCALE-OUT ABORTED] Sell order failed on chain for {pos.symbol}: {err}. Position remains 100% open."
                 )
-                asyncio.create_task(
-                    self.alerts.send_exit_alert(
-                        pos.symbol, pos.pnl_pct, realized_gain, "Scale-Out (50%)", self.config.mode.value
-                    )
+                pos.scale_out_triggered = False
+                return False
+
+            pos.tokens_held -= tokens_to_sell
+            sol_earned = order.amount_sol
+            cost_sold = pos.sol_invested * 0.5
+            realized_gain = sol_earned - cost_sold
+            pos.realized_pnl_sol += realized_gain
+            pos.sol_invested -= cost_sold
+            pos.take_profit_price = pos.take_profit_price * 1.5
+            pos.trailing_stop_active = True
+
+            self.broadcast(
+                EventType.POSITION_UPDATED,
+                pos.model_dump(),
+                f"Scale-out TP1 on {pos.symbol}: secured 50% profit (+{realized_gain:.4f} SOL). Moonbag running!",
+            )
+            asyncio.create_task(
+                self.alerts.send_exit_alert(
+                    pos.symbol, pos.pnl_pct, realized_gain, "Scale-Out (50%)", self.config.mode.value
                 )
-                return True
-            return False
+            )
+            return True
 
-        # Full Close: Mark closed and remove from active tracker immediately to prevent race conditions
-        pos.status = PositionStatus.CLOSED
-        pos.exit_reason = reason
-        pos.closed_at = time.time()
-        self.tracker.remove_position(position_id)
-
+        # Full Close: Execute sell first on blockchain
         order, err = await self.executor.execute_sell(
             token_mint=pos.token_mint,
             symbol=pos.symbol,
@@ -290,13 +290,25 @@ class SniperEngine:
             current_price_sol=pos.current_price_sol,
         )
 
-        if order:
-            pos.sell_order_id = order.id
-            pos.sell_tx_hash = order.tx_hash
+        # STRICT VERIFICATION: Do NOT close position if the sell order did not fill on-chain!
+        if not order or order.status != OrderStatus.FILLED or not order.tx_hash:
+            logger.error(
+                f"[SELL REJECTED] On-chain sell failed for {pos.symbol} ({pos.token_mint}): {err}. "
+                f"Position remains OPEN. No fake profit recorded."
+            )
+            return False
 
-        # Update final PnL: include both final leg and any prior scale-out gains
-        current_value_sol = pos.tokens_held * pos.current_price_sol
-        final_leg_pnl = current_value_sol - pos.sol_invested
+        # Only now mark closed and remove from active tracker
+        pos.status = PositionStatus.CLOSED
+        pos.exit_reason = reason
+        pos.closed_at = time.time()
+        pos.sell_order_id = order.id
+        pos.sell_tx_hash = order.tx_hash
+        self.tracker.remove_position(position_id)
+
+        # Update final PnL: based on ACTUAL SOL received from the blockchain transaction
+        actual_sol_received = order.amount_sol
+        final_leg_pnl = actual_sol_received - pos.sol_invested
         total_trade_pnl = final_leg_pnl + getattr(pos, "realized_pnl_sol", 0.0)
         pos.pnl_sol = total_trade_pnl
         total_cost = pos.sol_invested + (pos.sol_invested if pos.scale_out_triggered else 0.0)

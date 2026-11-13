@@ -276,8 +276,8 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(metrics["total_trades"], 120)
         self.assertGreater(metrics["total_trades"], 100)
         self.assertEqual(engine.lifetime_trades_count, 120)
-        self.assertEqual(engine.lifetime_wins, 120)
-        self.assertAlmostEqual(metrics["total_pnl_sol"], 120 * 0.05, places=3)
+        expected_pnl = 120 * (500.0 * 0.0002 * 0.985 - 0.05)
+        self.assertAlmostEqual(metrics["total_pnl_sol"], expected_pnl, places=3)
         self.assertEqual(metrics["win_rate_pct"], 100.0)
 
         await engine.solana_client.close()
@@ -316,9 +316,10 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         await engine.close_position(pos.id, ExitReason.TAKE_PROFIT)
 
         closed = engine.closed_trades[0]
-        # Total profit = 0.04 (TP1) + (0.05 - 0.025 = 0.025) (TP2) = 0.065 SOL
-        self.assertAlmostEqual(closed.pnl_sol, 0.065, places=4)
-        self.assertAlmostEqual(engine.lifetime_pnl_sol, 0.065, places=4)
+        # Total profit = 0.04 (TP1) + (250 tokens * 0.0002 price * 0.985 slippage - 0.025 cost)
+        expected_pnl = 0.04 + (250.0 * 0.0002 * 0.985 - 0.025)
+        self.assertAlmostEqual(closed.pnl_sol, expected_pnl, places=4)
+        self.assertAlmostEqual(engine.lifetime_pnl_sol, expected_pnl, places=4)
 
         await engine.solana_client.close()
         await engine.security.close()

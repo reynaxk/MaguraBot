@@ -296,9 +296,14 @@ class TradeExecutor:
             order.status = OrderStatus.FILLED
             order.tx_hash = tx_sig
             order.completed_at = time.time()
+            out_lamports = float(quote.get("outAmount", 0))
+            order.amount_sol = out_lamports / 1_000_000_000.0
+            order.price_sol = (order.amount_sol / amount_tokens) if amount_tokens > 0 else 0.0
+            logger.info(f"[LIVE SELL SUCCESS] {order.symbol} Tx: {tx_sig} (received {order.amount_sol:.4f} SOL)")
             return order, None
 
         err = "Live sell transaction submission failed"
         order.status = OrderStatus.FAILED
         order.error_message = err
+        logger.error(f"[LIVE SELL FAILED] {order.symbol}: {err}")
         return order, err

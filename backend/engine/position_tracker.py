@@ -4,8 +4,10 @@ import os
 import random
 import time
 from typing import Callable, Dict, Optional
+import aiohttp
 from backend.models.config import BotConfig
-from backend.models.order import Position, PositionStatus, ExitReason
+from backend.models.order import BotMode, Position, PositionStatus, ExitReason
+from backend.services.jupiter import WSOL_MINT, JupiterService
 
 logger = logging.getLogger("MaguraBot.PositionTracker")
 
@@ -15,12 +17,15 @@ class PositionTracker:
         self,
         config: BotConfig,
         on_exit_triggered: Callable[[Position, ExitReason], asyncio.Future],
+        jupiter: Optional[JupiterService] = None,
     ):
         self.config = config
         self.on_exit_triggered = on_exit_triggered
+        self.jupiter = jupiter
         self.positions: Dict[str, Position] = {}
         self._running = False
         self._task: Optional[asyncio.Task] = None
+        self._session: Optional[aiohttp.ClientSession] = None
 
     def add_position(self, position: Position):
         if not position.initial_tokens_held:
@@ -33,6 +38,11 @@ class PositionTracker:
 
     def remove_position(self, position_id: str) -> Optional[Position]:
         return self.positions.pop(position_id, None)
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4))
+        return self._session
 
     async def start(self):
         if self._running:
@@ -49,7 +59,46 @@ class PositionTracker:
                 await self._task
             except asyncio.CancelledError:
                 pass
+        if self._session and not self._session.closed:
+            await self._session.close()
         logger.info("PositionTracker stopped")
+
+    async def _fetch_live_price(self, p: Position) -> Optional[float]:
+        """Fetch true live market price via DexScreener API or Jupiter Quote."""
+        # 1. Query DexScreener token pairs
+        try:
+            session = await self._get_session()
+            url = f"https://api.dexscreener.com/latest/dex/tokens/{p.token_mint}"
+            async with session.get(url) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    pairs = data.get("pairs") or []
+                    if pairs:
+                        price_native = pairs[0].get("priceNative")
+                        if price_native:
+                            val = float(price_native)
+                            if val > 0:
+                                return val
+        except Exception as e:
+            logger.debug(f"DexScreener price error for {p.symbol}: {e}")
+
+        # 2. Query Jupiter Swap quote
+        if self.jupiter and p.tokens_held > 0:
+            try:
+                quote = await self.jupiter.get_quote(
+                    input_mint=p.token_mint,
+                    output_mint=WSOL_MINT,
+                    amount_lamports=int(p.tokens_held),
+                    slippage_bps=self.config.slippage_bps,
+                )
+                if quote and "outAmount" in quote:
+                    out_sol = float(quote["outAmount"]) / 1_000_000_000.0
+                    if out_sol > 0 and p.tokens_held > 0:
+                        return out_sol / p.tokens_held
+            except Exception as e:
+                logger.debug(f"Jupiter quote error for {p.symbol}: {e}")
+
+        return None
 
     async def _monitor_loop(self):
         while self._running:
@@ -64,11 +113,20 @@ class PositionTracker:
 
     async def _evaluate_position(self, p: Position):
         # 1. Update current price
-        # In paper mode, simulate active market volatility
-        # (with realistic upward/downward drift to test TP & SL triggers)
-        drift = random.uniform(-0.04, 0.055)
-        new_price = max(p.buy_price_sol * 0.05, p.current_price_sol * (1.0 + drift))
         sol_price_usd = float(os.getenv("SOL_PRICE_USD", "81.05"))
+
+        if self.config.mode == BotMode.LIVE:
+            live_price = await self._fetch_live_price(p)
+            if live_price is not None and live_price > 0:
+                new_price = live_price
+            else:
+                # Do NOT fake any upward or downward movement when live quote is temporarily missing
+                new_price = p.current_price_sol
+        else:
+            # Paper mode: simulate active market volatility
+            drift = random.uniform(-0.04, 0.055)
+            new_price = max(p.buy_price_sol * 0.05, p.current_price_sol * (1.0 + drift))
+
         p.current_price_sol = new_price
         p.current_price_usd = new_price * sol_price_usd
 
