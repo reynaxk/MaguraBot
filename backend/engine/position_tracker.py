@@ -64,25 +64,11 @@ class PositionTracker:
         logger.info("PositionTracker stopped")
 
     async def _fetch_live_price(self, p: Position) -> Optional[float]:
-        """Fetch true live market price via DexScreener API or Jupiter Quote."""
-        # 1. Query DexScreener token pairs
-        try:
-            session = await self._get_session()
-            url = f"https://api.dexscreener.com/latest/dex/tokens/{p.token_mint}"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    pairs = data.get("pairs") or []
-                    if pairs:
-                        price_native = pairs[0].get("priceNative")
-                        if price_native:
-                            val = float(price_native)
-                            if val > 0:
-                                return val
-        except Exception as e:
-            logger.debug(f"DexScreener price error for {p.symbol}: {e}")
+        """Fetch true live market price via Jupiter Swap quote (exact SOL return for tokens held).
 
-        # 2. Query Jupiter Swap quote
+        Using Jupiter directly guarantees that the price is in identical atomic units as the
+        executed buy, eliminating any decimal mismatches or DexScreener indexing delays.
+        """
         if self.jupiter and p.tokens_held > 0:
             try:
                 quote = await self.jupiter.get_quote(

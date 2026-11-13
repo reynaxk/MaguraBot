@@ -1517,8 +1517,8 @@
               </div>
               <div class="text-[10px] text-dim">${p.token_mint.slice(0, 4)}...${p.token_mint.slice(-4)}</div>
             </td>
-            <td class="py-3 px-3 text-dim">${p.buy_price_sol.toFixed(8)} SOL</td>
-            <td class="py-3 px-3 text-white font-semibold">${p.current_price_sol.toFixed(8)} SOL</td>
+            <td class="py-3 px-3 text-dim">${p.buy_price_sol < 0.00001 ? p.buy_price_sol.toExponential(3) : p.buy_price_sol.toFixed(8)} SOL</td>
+            <td class="py-3 px-3 text-white font-semibold">${p.current_price_sol < 0.00001 ? p.current_price_sol.toExponential(3) : p.current_price_sol.toFixed(8)} SOL</td>
             <td class="py-3 px-3 text-[11px] text-dim font-mono">
               <span class="text-accent block">TP: +50%</span>
               <span class="text-danger block">SL: -20%</span>
