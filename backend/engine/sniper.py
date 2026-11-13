@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from typing import Callable, Dict, List, Optional
 from backend.models.config import BotConfig
@@ -71,6 +72,7 @@ class SniperEngine:
         self.lifetime_wins: int = 0
         self._snipe_lock = asyncio.Lock()
         self._in_flight_snipes: int = 0
+        self.sol_price_usd: float = float(os.getenv("SOL_PRICE_USD", "81.05"))
         
         self.is_running = False
 
@@ -299,7 +301,7 @@ class SniperEngine:
         pos.pnl_sol = total_trade_pnl
         total_cost = pos.sol_invested + (pos.sol_invested if pos.scale_out_triggered else 0.0)
         pos.pnl_pct = (total_trade_pnl / total_cost) * 100.0 if total_cost > 0 else 0.0
-        pos.pnl_usd = pos.pnl_sol * 180.0
+        pos.pnl_usd = pos.pnl_sol * self.sol_price_usd
 
         self.closed_trades.insert(0, pos)
         if len(self.closed_trades) > 2000:
@@ -357,7 +359,7 @@ class SniperEngine:
             "total_trades": total_trades,
             "win_rate_pct": round(win_rate, 1),
             "total_pnl_sol": round(total_pnl_sol, 4),
-            "total_pnl_usd": round(total_pnl_sol * 180.0, 2),
+            "total_pnl_usd": round(total_pnl_sol * self.sol_price_usd, 2),
             "paper_balance_sol": round(self.executor.paper_balance_sol, 4),
-            "sol_price_usd": 180.0,
+            "sol_price_usd": self.sol_price_usd,
         }

@@ -1,5 +1,6 @@
 import base64
 import logging
+import os
 import time
 import uuid
 from typing import Optional, Tuple
@@ -94,10 +95,11 @@ class TradeExecutor:
         effective_price = price_sol * 1.015
         tokens_received = amount_sol / effective_price
 
+        sol_price_usd = float(os.getenv("SOL_PRICE_USD", "81.05"))
         self.paper_balance_sol -= amount_sol
         order.status = OrderStatus.FILLED
         order.price_sol = effective_price
-        order.price_usd = effective_price * 180.0  # reference benchmark SOL price
+        order.price_usd = effective_price * sol_price_usd  # reference benchmark SOL price
         order.amount_tokens = tokens_received
         order.tx_hash = f"paper_tx_{uuid.uuid4().hex[:12]}"
         order.completed_at = time.time()
@@ -117,10 +119,11 @@ class TradeExecutor:
         effective_price = current_price_sol * 0.985
         sol_received = amount_tokens * effective_price
 
+        sol_price_usd = float(os.getenv("SOL_PRICE_USD", "81.05"))
         self.paper_balance_sol += sol_received
         order.status = OrderStatus.FILLED
         order.price_sol = effective_price
-        order.price_usd = effective_price * 180.0
+        order.price_usd = effective_price * sol_price_usd
         order.amount_sol = sol_received
         order.tx_hash = f"paper_tx_{uuid.uuid4().hex[:12]}"
         order.completed_at = time.time()

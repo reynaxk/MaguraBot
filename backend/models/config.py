@@ -28,12 +28,18 @@ class BotConfig(BaseModel):
     )
     
     # Trade Execution
-    buy_amount_sol: float = Field(default=0.05, gt=0)
-    max_positions: int = Field(default=5, ge=1, le=20)
+    buy_amount_sol: float = Field(
+        default_factory=lambda: float(os.getenv("DEFAULT_BUY_AMOUNT_SOL") or os.getenv("BUY_AMOUNT_SOL") or 0.03)
+    )
+    max_positions: int = Field(
+        default_factory=lambda: int(os.getenv("MAX_POSITIONS") or 3)
+    )
     slippage_bps: int = Field(default=500, ge=50, le=5000)
-    priority_fee_microlamports: int = Field(default=100000, ge=0)
+    priority_fee_microlamports: int = Field(default=250000, ge=0)
     priority_fee_level: str = "fast"
-    use_jito: bool = False
+    use_jito: bool = Field(
+        default_factory=lambda: os.getenv("USE_JITO", "true").lower() in ("true", "1")
+    )
     jito_tip_sol: float = 0.001
     enable_dynamic_jito_tip: bool = True
     max_jito_tip_sol: float = 0.01
@@ -52,7 +58,9 @@ class BotConfig(BaseModel):
     max_dev_buy_pct: float = 10.0
     require_mint_revoked: bool = True
     require_freeze_revoked: bool = True
-    min_safety_score: int = Field(default=70, ge=0, le=100)
+    min_safety_score: int = Field(
+        default_factory=lambda: int(os.getenv("MIN_SAFETY_SCORE") or 75)
+    )
     
     # Launchpad Feeds
     enable_pumpfun: bool = True

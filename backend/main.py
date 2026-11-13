@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Optional
 import csv
@@ -55,7 +56,8 @@ def on_bot_event(event: BotEvent):
 async def lifespan(app: FastAPI):
     engine.subscribe(on_bot_event)
     await rpc_pool.start()
-    await engine.start()
+    if os.getenv("AUTO_START_BOT", "false").lower() in ("true", "1"):
+        await engine.start()
     yield
     await engine.stop()
     await rpc_pool.stop()
@@ -92,7 +94,7 @@ async def get_status():
         try:
             live_bal = await engine.solana_client.get_balance(pubkey)
             metrics["live_balance_sol"] = round(live_bal, 4)
-            metrics["live_balance_usd"] = round(live_bal * 180.0, 2)
+            metrics["live_balance_usd"] = round(live_bal * engine.sol_price_usd, 2)
         except Exception:
             metrics["live_balance_sol"] = 0.0
             metrics["live_balance_usd"] = 0.0
@@ -118,7 +120,7 @@ async def get_wallet():
         "configured": True,
         "address": pubkey,
         "balance_sol": round(balance, 4),
-        "balance_usd": round(balance * 180.0, 2),
+        "balance_usd": round(balance * engine.sol_price_usd, 2),
         "mode": engine.config.mode.value
     }
 

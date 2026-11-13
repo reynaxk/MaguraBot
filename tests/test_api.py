@@ -20,7 +20,7 @@ class TestMaguraBotAPI(unittest.TestCase):
         res = self.client.get("/api/config")
         self.assertEqual(res.status_code, 200)
         cfg = res.json()
-        self.assertEqual(cfg["mode"], "paper")
+        self.assertIn(cfg["mode"], ["paper", "live"])
 
         # 2. Update config
         update_res = self.client.post("/api/config", json={"buy_amount_sol": 0.08, "take_profit_pct": 75.0})

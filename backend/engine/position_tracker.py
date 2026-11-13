@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import random
 import time
 from typing import Callable, Dict, Optional
@@ -67,8 +68,9 @@ class PositionTracker:
         # (with realistic upward/downward drift to test TP & SL triggers)
         drift = random.uniform(-0.04, 0.055)
         new_price = max(p.buy_price_sol * 0.05, p.current_price_sol * (1.0 + drift))
+        sol_price_usd = float(os.getenv("SOL_PRICE_USD", "81.05"))
         p.current_price_sol = new_price
-        p.current_price_usd = new_price * 180.0
+        p.current_price_usd = new_price * sol_price_usd
 
         if new_price > p.peak_price_sol:
             p.peak_price_sol = new_price
@@ -77,7 +79,7 @@ class PositionTracker:
         current_value_sol = p.tokens_held * new_price
         p.pnl_sol = current_value_sol - p.sol_invested
         p.pnl_pct = (p.pnl_sol / p.sol_invested) * 100.0 if p.sol_invested > 0 else 0.0
-        p.pnl_usd = p.pnl_sol * 180.0
+        p.pnl_usd = p.pnl_sol * sol_price_usd
 
         # 3. Check Breakeven Stop-Loss Lock (+20% gain locks SL at entry to guarantee risk-free trade)
         if getattr(self.config, "enable_breakeven_lock", True) and not p.breakeven_locked:
