@@ -85,12 +85,58 @@ app.add_middleware(
 @app.get("/api/status")
 async def get_status():
     metrics = engine.get_metrics()
+    pubkey = engine.executor.get_public_key()
+    metrics["wallet_address"] = pubkey
+    metrics["has_wallet"] = bool(pubkey)
+    if pubkey:
+        try:
+            live_bal = await engine.solana_client.get_balance(pubkey)
+            metrics["live_balance_sol"] = round(live_bal, 4)
+            metrics["live_balance_usd"] = round(live_bal * 180.0, 2)
+        except Exception:
+            metrics["live_balance_sol"] = 0.0
+            metrics["live_balance_usd"] = 0.0
     return metrics
+
+
+@app.get("/api/wallet")
+async def get_wallet():
+    pubkey = engine.executor.get_public_key()
+    if not pubkey:
+        return {
+            "configured": False,
+            "address": None,
+            "balance_sol": 0.0,
+            "balance_usd": 0.0,
+            "mode": engine.config.mode.value
+        }
+    try:
+        balance = await engine.solana_client.get_balance(pubkey)
+    except Exception:
+        balance = 0.0
+    return {
+        "configured": True,
+        "address": pubkey,
+        "balance_sol": round(balance, 4),
+        "balance_usd": round(balance * 180.0, 2),
+        "mode": engine.config.mode.value
+    }
+
+
+def _mask_config(cfg: dict) -> dict:
+    masked = dict(cfg)
+    pk = masked.get("solana_private_key")
+    if pk:
+        masked["solana_private_key"] = f"***{pk[-6:]}" if len(pk) > 10 else "***"
+        masked["has_private_key"] = True
+    else:
+        masked["has_private_key"] = False
+    return masked
 
 
 @app.get("/api/config")
 async def get_config():
-    return engine.config.model_dump()
+    return _mask_config(engine.config.model_dump())
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -112,6 +158,7 @@ class ConfigUpdateRequest(BaseModel):
     priority_fee_level: Optional[str] = None
     priority_fee_microlamports: Optional[int] = None
     solana_rpc_url: Optional[str] = None
+    solana_private_key: Optional[str] = None
     enable_pumpfun: Optional[bool] = None
     enable_raydium: Optional[bool] = None
     enable_meteora: Optional[bool] = None
@@ -127,6 +174,10 @@ class ConfigUpdateRequest(BaseModel):
 @app.post("/api/config")
 async def update_config(req: ConfigUpdateRequest):
     updates = req.model_dump(exclude_unset=True)
+    if "solana_private_key" in updates and updates["solana_private_key"]:
+        kp = engine.solana_client.load_keypair(updates["solana_private_key"])
+        if not kp:
+            return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid Solana private key. Must be valid base58 string or byte array."})
     for k, v in updates.items():
         setattr(engine.config, k, v)
     if "priority_fee_level" in updates:
@@ -147,7 +198,7 @@ async def update_config(req: ConfigUpdateRequest):
         engine.alerts.telegram_bot_token = updates["telegram_bot_token"]
     if "telegram_chat_id" in updates:
         engine.alerts.telegram_chat_id = updates["telegram_chat_id"]
-    return {"status": "success", "config": engine.config.model_dump()}
+    return {"status": "success", "config": _mask_config(engine.config.model_dump())}
 
 
 @app.post("/api/bot/start")

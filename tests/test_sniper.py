@@ -1,5 +1,6 @@
 import asyncio
 import unittest
+from unittest.mock import AsyncMock
 from backend.models.config import BotConfig
 from backend.models.order import BotMode, OrderType, OrderStatus, ExitReason, Position
 from backend.models.token import TokenData, LaunchpadType, TokenSafetyScore
@@ -374,7 +375,49 @@ class TestMaguraBot(unittest.IsolatedAsyncioTestCase):
         await engine.jupiter.close()
         await engine.alerts.close()
 
+    async def test_solana_sign_transaction(self):
+        """Verify SolanaClient signs VersionedTransactions correctly with solders Keypair."""
+        import base64
+        from solders.transaction import VersionedTransaction
+        pub, priv = SolanaClient.generate_keypair()
+        keypair = SolanaClient.load_keypair(priv)
+        self.assertIsNotNone(keypair)
+
+        # Create sample versioned transaction
+        sample_tx = VersionedTransaction.default()
+        raw_b64 = base64.b64encode(bytes(sample_tx)).decode("utf-8")
+
+        signed_b64 = SolanaClient.sign_transaction(raw_b64, keypair)
+        self.assertTrue(len(signed_b64) > 50)
+        signed_bytes = base64.b64decode(signed_b64)
+        deserialized = VersionedTransaction.from_bytes(signed_bytes)
+        self.assertEqual(len(deserialized.signatures), 1)
+
+    async def test_live_buy_insufficient_balance_rejected(self):
+        """Verify live buy is rejected when wallet balance is below buy_amount + fees."""
+        pub, priv = SolanaClient.generate_keypair()
+        self.config.mode = BotMode.LIVE
+        self.config.solana_private_key = priv
+        self.executor.config = self.config
+
+        # Mock balance to 0.01 SOL (less than 0.05 + 0.005)
+        self.solana_client.get_balance = AsyncMock(return_value=0.01)
+
+        token = TokenData(
+            mint="DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+            symbol="BONK",
+            name="Bonk",
+            source=LaunchpadType.PUMPFUN,
+            price_sol=0.00000005,
+        )
+
+        order, err = await self.executor.execute_buy(token, 0.05)
+        self.assertIsNotNone(err)
+        self.assertIn("Insufficient live wallet balance", err)
+        self.assertEqual(order.status, OrderStatus.FAILED)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

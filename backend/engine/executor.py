@@ -147,6 +147,17 @@ class TradeExecutor:
             return order, err
 
         wallet_pubkey = str(keypair.pubkey())
+        
+        # Pre-flight check: ensure sufficient SOL balance including fee buffer
+        wallet_balance = await self.solana_client.get_balance(wallet_pubkey)
+        min_required = amount_sol + 0.005
+        if wallet_balance < min_required:
+            err = f"Insufficient live wallet balance: {wallet_balance:.4f} SOL available (need {min_required:.4f} SOL including fees)"
+            order.status = OrderStatus.FAILED
+            order.error_message = err
+            logger.warning(f"[LIVE BUY REJECTED] {err}")
+            return order, err
+
         lamports = int(amount_sol * 1_000_000_000)
 
         # 1. Fetch quote from Jupiter
@@ -174,7 +185,17 @@ class TradeExecutor:
             order.error_message = err
             return order, err
 
-        # 3. Sign & Broadcast transaction
+        # 3. Sign transaction with user keypair
+        try:
+            signed_tx_b64 = self.solana_client.sign_transaction(raw_tx_b64, keypair)
+        except Exception as e:
+            err = f"Failed to sign live buy transaction: {e}"
+            order.status = OrderStatus.FAILED
+            order.error_message = err
+            logger.error(err)
+            return order, err
+
+        # 4. Broadcast signed transaction
         try:
             if self.config.use_jito:
                 safety_score = getattr(token.safety, "score", 70) if hasattr(token, "safety") else 70
@@ -185,12 +206,12 @@ class TradeExecutor:
                     max_tip_sol=getattr(self.config, "max_jito_tip_sol", 0.01),
                 )
                 logger.info(f"Submitting buy transaction via Jito MEV Bundle with {tip_sol:.5f} SOL dynamic tip...")
-                tx_sig = await self.jito.send_bundle([raw_tx_b64])
+                tx_sig = await self.jito.send_bundle([signed_tx_b64])
                 if not tx_sig:
                     # Fallback to direct RPC
-                    tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+                    tx_sig = await self.solana_client.send_raw_transaction(signed_tx_b64)
             else:
-                tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+                tx_sig = await self.solana_client.send_raw_transaction(signed_tx_b64)
 
             if tx_sig:
                 order.status = OrderStatus.FILLED
@@ -250,13 +271,23 @@ class TradeExecutor:
             order.error_message = err
             return order, err
 
+        # Sign transaction with keypair
+        try:
+            signed_tx_b64 = self.solana_client.sign_transaction(raw_tx_b64, keypair)
+        except Exception as e:
+            err = f"Failed to sign live sell transaction: {e}"
+            order.status = OrderStatus.FAILED
+            order.error_message = err
+            logger.error(err)
+            return order, err
+
         if self.config.use_jito:
             logger.info(f"Submitting sell transaction via Jito MEV Bundle with {self.config.jito_tip_sol} SOL tip...")
-            tx_sig = await self.jito.send_bundle([raw_tx_b64])
+            tx_sig = await self.jito.send_bundle([signed_tx_b64])
             if not tx_sig:
-                tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+                tx_sig = await self.solana_client.send_raw_transaction(signed_tx_b64)
         else:
-            tx_sig = await self.solana_client.send_raw_transaction(raw_tx_b64)
+            tx_sig = await self.solana_client.send_raw_transaction(signed_tx_b64)
 
         if tx_sig:
             order.status = OrderStatus.FILLED

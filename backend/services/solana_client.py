@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import time
@@ -6,6 +7,8 @@ import aiohttp
 import base58
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
+from solders.transaction import VersionedTransaction
+from solders.message import to_bytes_versioned
 
 logger = logging.getLogger("MaguraBot.SolanaClient")
 
@@ -107,6 +110,18 @@ class SolanaClient:
         except Exception as e:
             logger.error(f"Failed to parse keypair: {e}")
             return None
+
+    @staticmethod
+    def sign_transaction(raw_tx_b64: str, keypair: Keypair) -> str:
+        """
+        Sign a base64 serialized VersionedTransaction with keypair and return the signed base64 string.
+        """
+        raw_bytes = base64.b64decode(raw_tx_b64)
+        tx = VersionedTransaction.from_bytes(raw_bytes)
+        message_bytes = to_bytes_versioned(tx.message)
+        signature = keypair.sign_message(message_bytes)
+        signed_tx = VersionedTransaction.populate(tx.message, [signature])
+        return base64.b64encode(bytes(signed_tx)).decode("utf-8")
 
     @staticmethod
     def generate_keypair() -> tuple[str, str]:

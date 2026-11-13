@@ -1,19 +1,31 @@
+import os
 from typing import Optional
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from backend.models.order import BotMode
+
+load_dotenv()
 
 
 class BotConfig(BaseModel):
     # Core Operation
-    mode: BotMode = BotMode.PAPER
+    mode: BotMode = Field(
+        default_factory=lambda: BotMode(os.getenv("BOT_MODE", "paper").lower())
+    )
     is_running: bool = True
     auto_snipe: bool = True
     max_daily_loss_sol: float = 1.0
     
     # RPC & Network
-    solana_rpc_url: str = "https://api.mainnet-beta.solana.com"
-    solana_ws_url: str = "wss://api.mainnet-beta.solana.com"
-    solana_private_key: Optional[str] = None
+    solana_rpc_url: str = Field(
+        default_factory=lambda: os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+    )
+    solana_ws_url: str = Field(
+        default_factory=lambda: os.getenv("SOLANA_WS_URL", "wss://api.mainnet-beta.solana.com")
+    )
+    solana_private_key: Optional[str] = Field(
+        default_factory=lambda: os.getenv("SOLANA_PRIVATE_KEY") or None
+    )
     
     # Trade Execution
     buy_amount_sol: float = Field(default=0.05, gt=0)
