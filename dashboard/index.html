@@ -1285,72 +1285,96 @@
     }
 
     function applyRadarFilters() {
-      const query = (document.getElementById("radarSearchInput").value || "").toLowerCase();
+      const searchEl = document.getElementById("radarSearchInput");
+      const query = (searchEl && searchEl.value ? searchEl.value : "").trim().toLowerCase();
       const radar = document.getElementById("radarList");
+      if (!radar) return;
       radar.innerHTML = "";
 
       const filtered = allRecentTokens.filter(t => {
-        if (query && !t.symbol.toLowerCase().includes(query) && !t.mint.toLowerCase().includes(query) && !t.name.toLowerCase().includes(query)) {
+        if (!t) return false;
+        const sym = (t.symbol || "").toLowerCase();
+        const mint = (t.mint || "").toLowerCase();
+        const name = (t.name || "").toLowerCase();
+        const src = (t.source || "").toLowerCase();
+
+        if (query && !sym.includes(query) && !mint.includes(query) && !name.includes(query)) {
           return false;
         }
-        if (radarFilter === "pumpfun" && t.source !== "pumpfun") return false;
-        if (radarFilter === "raydium" && t.source !== "raydium") return false;
-        if (radarFilter === "meteora" && t.source !== "meteora") return false;
+        if (radarFilter === "pumpfun" && src !== "pumpfun") return false;
+        if (radarFilter === "raydium" && src !== "raydium") return false;
+        if (radarFilter === "meteora" && src !== "meteora") return false;
         if (radarFilter === "safe" && (t.safety?.score || 0) < 80) return false;
         return true;
       });
 
+      const countEl = document.getElementById("radarCount");
+      if (countEl) countEl.innerText = `${filtered.length} Discovered`;
+
       if (filtered.length === 0) {
-        radar.innerHTML = `<div class="text-center py-16 text-dim font-mono text-xs">No tokens match filter criteria</div>`;
+        if (allRecentTokens.length === 0) {
+          radar.innerHTML = `<div class="text-center py-16 text-dim font-mono text-xs flex flex-col items-center justify-center gap-2">
+            <span class="inline-block w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin"></span>
+            <span>Scanning Raydium, Meteora & Pump.fun memepools...</span>
+          </div>`;
+        } else {
+          radar.innerHTML = `<div class="text-center py-16 text-dim font-mono text-xs">No tokens match filter criteria (${radarFilter})</div>`;
+        }
         return;
       }
 
       filtered.forEach(t => renderSingleTokenCard(t, radar));
-      document.getElementById("radarCount").innerText = `${filtered.length} Discovered`;
     }
 
     function renderSingleTokenCard(token, targetEl) {
+      if (!token || !targetEl) return;
       const card = document.createElement("div");
       card.className = "bg-panel2 p-3 rounded-lg border border-border1 hover:border-accent/40 transition flex items-center justify-between cursor-pointer group";
+
+      const symbol = String(token.symbol || "TKN").toUpperCase();
+      const mint = String(token.mint || "");
+      const name = token.name ? String(token.name) : (mint ? `${mint.slice(0, 6)}...` : "Unknown");
+      const source = String(token.source || "DEX").toUpperCase();
+
       card.onclick = (e) => {
         if (e.target.tagName === 'BUTTON') return;
-        loadTokenCandles(token.mint, token.symbol);
+        if (mint) loadTokenCandles(mint, symbol);
       };
 
-      const score = token.safety ? token.safety.score : 80;
+      const score = (token.safety && typeof token.safety.score === 'number') ? token.safety.score : 80;
       const scoreColor = score >= 70 ? 'text-accent bg-accent/10 border-accent/30' : (score >= 40 ? 'text-warn bg-warn/10 border-warn/30' : 'text-danger bg-danger/10 border-danger/30');
 
       card.innerHTML = `
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg bg-panel border border-border2 flex items-center justify-center font-bold text-xs uppercase font-mono text-white group-hover:text-accent group-hover:border-accent/40 transition">
-            ${token.symbol.slice(0, 3)}
+            ${symbol.slice(0, 4)}
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="font-bold text-sm text-white">${token.symbol}</span>
+              <span class="font-bold text-sm text-white">${symbol}</span>
               <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${scoreColor}">${score}/100</span>
-              <span class="text-[10px] text-dim font-mono">${token.source}</span>
+              <span class="text-[10px] text-accent/80 bg-accent/5 px-1 py-0.2 rounded font-mono">${source}</span>
             </div>
-            <div class="text-[11px] text-dim font-mono mt-0.5 truncate max-w-[150px]">
-              ${token.name}
+            <div class="text-[11px] text-dim font-mono mt-0.5 truncate max-w-[150px]" title="${name}">
+              ${name}
             </div>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
-          ${token.bonding_curve_pct ? `
+          ${(token.bonding_curve_pct !== undefined && token.bonding_curve_pct !== null) ? `
             <div class="text-right hidden sm:block pr-1">
               <div class="text-[10px] text-dim font-mono">Curve</div>
-              <div class="text-xs font-mono font-semibold text-accent">${token.bonding_curve_pct.toFixed(0)}%</div>
+              <div class="text-xs font-mono font-semibold text-accent">${Number(token.bonding_curve_pct).toFixed(0)}%</div>
             </div>
           ` : ''}
-          <button onclick="openAuditModal('${token.mint}', '${token.symbol}')" class="bg-panel hover:bg-panel2 border border-border2 text-dim hover:text-white font-mono text-[11px] px-2 py-1.5 rounded transition">
+          <button onclick="openAuditModal('${mint}', '${symbol}')" class="bg-panel hover:bg-panel2 border border-border2 text-dim hover:text-white font-mono text-[11px] px-2 py-1.5 rounded transition">
             Audit
           </button>
-          <button onclick="loadTokenCandles('${token.mint}', '${token.symbol}')" class="bg-panel hover:bg-panel2 border border-border2 text-dim hover:text-white font-mono text-[11px] px-2 py-1.5 rounded transition">
+          <button onclick="loadTokenCandles('${mint}', '${symbol}')" class="bg-panel hover:bg-panel2 border border-border2 text-dim hover:text-white font-mono text-[11px] px-2 py-1.5 rounded transition">
             Chart
           </button>
-          <button onclick="manualSnipe('${token.mint}', '${token.symbol}')" class="bg-panel hover:bg-accent hover:text-black border border-border2 hover:border-accent text-accent font-mono text-[11px] px-2.5 py-1.5 rounded transition font-semibold">
+          <button onclick="manualSnipe('${mint}', '${symbol}')" class="bg-panel hover:bg-accent hover:text-black border border-border2 hover:border-accent text-accent font-mono text-[11px] px-2.5 py-1.5 rounded transition font-semibold">
             Snipe
           </button>
         </div>
@@ -1414,11 +1438,18 @@
         renderPositions(msg.positions || []);
         renderTrades(msg.trades || []);
         if (msg.recent_tokens && msg.recent_tokens.length > 0) {
-          allRecentTokens.length = 0;
-          msg.recent_tokens.forEach(t => allRecentTokens.push(t));
+          msg.recent_tokens.forEach(t => {
+            if (!t || !t.mint) return;
+            const idx = allRecentTokens.findIndex(existing => existing.mint === t.mint);
+            if (idx === -1) {
+              allRecentTokens.push(t);
+            } else {
+              allRecentTokens[idx] = t;
+            }
+          });
           applyRadarFilters();
-          if (msg.recent_tokens[0] && !activeMint) {
-            loadTokenCandles(msg.recent_tokens[0].mint, msg.recent_tokens[0].symbol);
+          if (allRecentTokens[0] && !activeMint) {
+            loadTokenCandles(allRecentTokens[0].mint, allRecentTokens[0].symbol);
           }
         }
       } else if (msg.event === "token_discovered") {
@@ -1603,14 +1634,28 @@
         if (!res.ok) return;
         const tokens = await res.json();
         if (tokens && Array.isArray(tokens) && tokens.length > 0) {
-          allRecentTokens.length = 0;
-          tokens.forEach(t => allRecentTokens.push(t));
-          applyRadarFilters();
-          if (!activeMint && tokens[0]) {
-            loadTokenCandles(tokens[0].mint, tokens[0].symbol);
+          let updated = false;
+          tokens.forEach(t => {
+            if (!t || !t.mint) return;
+            const idx = allRecentTokens.findIndex(existing => existing.mint === t.mint);
+            if (idx === -1) {
+              allRecentTokens.push(t);
+              updated = true;
+            } else {
+              allRecentTokens[idx] = t;
+              updated = true;
+            }
+          });
+          if (updated || allRecentTokens.length === 0) {
+            applyRadarFilters();
+          }
+          if (!activeMint && allRecentTokens[0]) {
+            loadTokenCandles(allRecentTokens[0].mint, allRecentTokens[0].symbol);
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn("fetchRecentTokens error", e);
+      }
     }
 
     async function manualSnipe(mint, symbol) {
