@@ -56,7 +56,7 @@
         <div>
           <div class="flex items-center gap-2">
             <span class="font-bold text-base tracking-wide text-white">MAGURABOT</span>
-            <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/30 font-semibold" id="modeBadge">PAPER TRADING</span>
+            <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-accent/20 text-accent border border-accent/40 font-bold" id="modeBadge">● LIVE TRADING (REAL MONEY)</span>
           </div>
           <p class="text-xs text-dim font-mono">Solana Memecoin Sniper • Pump.fun & Raydium</p>
         </div>
@@ -68,8 +68,15 @@
       </div>
 
       <div class="hidden lg:flex items-center gap-2 pl-3 border-l border-border1 font-mono text-xs">
+        <span class="text-dim">Wallet:</span>
+        <a id="headerWalletLink" href="https://solscan.io/account/2USThBfTHZNyGrgY5brjCuqE7dZgLteF7QKuvXMsLH97" target="_blank" rel="noopener noreferrer" class="text-accent hover:underline flex items-center gap-1 font-semibold">
+          <span id="headerWalletShort">2USTh...LH97</span> ↗
+        </a>
+      </div>
+
+      <div class="hidden xl:flex items-center gap-2 pl-3 border-l border-border1 font-mono text-xs">
         <span class="inline-block w-2 h-2 rounded-full bg-accent" id="rpcPingDot"></span>
-        <span class="text-dim" id="rpcPingText">RPC: --ms</span>
+        <span class="text-dim" id="rpcPingText">RPC: Helius 239ms</span>
       </div>
     </div>
 
@@ -94,23 +101,18 @@
       </button>
 
       <!-- Wallet Assistant Button -->
-      <button onclick="openWalletModal()" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-2.5 py-1.5 rounded-lg text-dim hover:text-white transition flex items-center gap-1.5">
+      <button onclick="openWalletModal()" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-2.5 py-1.5 rounded-lg text-accent hover:text-white transition flex items-center gap-1.5">
         💼 <span class="hidden sm:inline">Wallet</span>
       </button>
 
-      <!-- Backtest Simulator Button -->
-      <button onclick="openBacktestModal()" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-2.5 py-1.5 rounded-lg text-amber-400 hover:text-white transition flex items-center gap-1.5">
-        🧪 <span class="hidden sm:inline">Backtest</span>
-      </button>
+      <!-- Solscan External Link -->
+      <a href="https://solscan.io/account/2USThBfTHZNyGrgY5brjCuqE7dZgLteF7QKuvXMsLH97" target="_blank" rel="noopener noreferrer" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-3 py-1.5 rounded-lg text-dim hover:text-white transition flex items-center gap-1">
+        🔍 <span class="hidden sm:inline">Solscan</span>
+      </a>
 
       <!-- Settings Modal Button -->
       <button onclick="openSettingsModal()" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-2.5 py-1.5 rounded-lg text-dim hover:text-white transition flex items-center gap-1.5">
         ⚙️ <span class="hidden sm:inline">Settings</span>
-      </button>
-
-      <!-- Mode Toggle -->
-      <button onclick="toggleMode()" id="modeToggleBtn" class="bg-panel2 hover:border-accent/40 border border-border2 text-xs font-mono px-3 py-1.5 rounded-lg text-dim hover:text-white transition">
-        Switch Mode
       </button>
 
       <!-- Start / Pause Bot -->
@@ -128,10 +130,13 @@
   <!-- METRICS KPI STRIP -->
   <section class="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-3.5 border-b border-border1 bg-panel/40">
     <div class="bg-panel p-3 rounded-xl border border-border1">
-      <p class="text-xs font-mono text-dim">WALLET BALANCE</p>
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-mono text-dim">LIVE WALLET BALANCE</p>
+        <span class="text-[10px] font-mono text-accent font-semibold">SOLANA MAINNET</span>
+      </div>
       <div class="flex items-baseline gap-2 mt-0.5">
-        <span class="text-xl font-bold font-mono text-white" id="statBalance">10.000 SOL</span>
-        <span class="text-xs text-dim font-mono" id="statBalanceUsd">≈ $1,800.00</span>
+        <span class="text-xl font-bold font-mono text-white" id="statBalance">1.3247 SOL</span>
+        <span class="text-xs text-accent font-mono" id="statBalanceUsd">≈ $107.37</span>
       </div>
     </div>
 
@@ -614,19 +619,21 @@
         <div class="bg-panel2 p-3.5 rounded-xl border border-border1 space-y-2.5">
           <div class="flex items-center justify-between">
             <span class="text-dim">Trading Mode</span>
-            <span id="walletModeLabel" class="font-semibold text-accent uppercase">Paper Simulation</span>
+            <span id="walletModeLabel" class="font-bold text-accent uppercase tracking-wide">● LIVE MAINNET (REAL MONEY)</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-dim">Active Address</span>
             <div class="flex items-center gap-2">
-              <span id="walletPubkey" class="text-white font-mono truncate max-w-[200px]">Simulated Paper Wallet</span>
+              <span id="walletPubkey" class="text-white font-mono truncate max-w-[220px]">2USThBfTHZNyGrgY5brjCuqE7dZgLteF7QKuvXMsLH97</span>
               <button onclick="copyWalletPubkey()" title="Copy Address" class="text-dim hover:text-accent transition">📋</button>
+              <a href="https://solscan.io/account/2USThBfTHZNyGrgY5brjCuqE7dZgLteF7QKuvXMsLH97" target="_blank" class="text-accent hover:underline text-[11px]">Solscan ↗</a>
             </div>
           </div>
           <div class="flex items-center justify-between border-t border-border1 pt-2">
-            <span class="text-dim">Available Balance</span>
+            <span class="text-dim">Live Balance</span>
             <div class="flex items-center gap-2">
-              <span id="walletBalanceVal" class="text-white font-bold text-sm">10.0000 SOL</span>
+              <span id="walletBalanceVal" class="text-white font-bold text-sm">1.3247 SOL</span>
+              <span id="walletBalanceUsdVal" class="text-accent font-mono text-xs">(~$107.37 USD)</span>
               <button onclick="fetchWalletInfo()" title="Refresh Balance" class="text-dim hover:text-white transition">🔄</button>
             </div>
           </div>
@@ -899,7 +906,7 @@
 
     let ws;
     let botRunning = true;
-    let botMode = "paper";
+    let botMode = "live";
     const allRecentTokens = [];
     let radarFilter = "all";
     const openPositions = [];
@@ -1532,13 +1539,28 @@
 
     function updateMetrics(m) {
       if (!m) return;
+      if (m.mode) {
+        botMode = m.mode;
+        updateControls();
+      }
       if (m.max_positions) {
         maxPositionsLimit = m.max_positions;
         document.getElementById("statActiveCount").innerText = `${openPositions.length} / ${maxPositionsLimit}`;
       }
-      document.getElementById("statBalance").innerText = `${m.paper_balance_sol.toFixed(3)} SOL`;
-      document.getElementById("statBalanceUsd").innerText = `≈ $${(m.paper_balance_sol * m.sol_price_usd).toFixed(2)}`;
+      const bal = (m.live_balance_sol !== undefined && m.live_balance_sol !== null) ? m.live_balance_sol : (m.paper_balance_sol || 0);
+      const solPrice = m.sol_price_usd || 81.05;
+      const balUsd = (m.live_balance_usd !== undefined && m.live_balance_usd !== null) ? m.live_balance_usd : (bal * solPrice);
+      document.getElementById("statBalance").innerText = `${bal.toFixed(4)} SOL`;
+      document.getElementById("statBalanceUsd").innerText = `≈ $${balUsd.toFixed(2)}`;
       
+      if (m.wallet_address) {
+        const shortAddr = `${m.wallet_address.slice(0, 5)}...${m.wallet_address.slice(-4)}`;
+        const el = document.getElementById("headerWalletShort");
+        if (el) el.innerText = shortAddr;
+        const link = document.getElementById("headerWalletLink");
+        if (link) link.href = `https://solscan.io/account/${m.wallet_address}`;
+      }
+
       const pnlPositive = m.total_pnl_sol >= 0;
       const pnlColor = pnlPositive ? 'text-accent' : 'text-danger';
       const pnlSign = pnlPositive ? '+' : '';
@@ -1652,10 +1674,11 @@
     }
 
     function updateControls() {
-      document.getElementById("modeBadge").innerText = botMode.toUpperCase() + " TRADING";
-      document.getElementById("modeBadge").className = botMode === "live" 
-        ? "text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-danger/10 text-danger border border-danger/30 font-semibold"
-        : "text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/30 font-semibold";
+      const isLive = botMode === "live";
+      document.getElementById("modeBadge").innerText = isLive ? "● LIVE TRADING (REAL MONEY)" : "PAPER TRADING";
+      document.getElementById("modeBadge").className = isLive 
+        ? "text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-accent/20 text-accent border border-accent/40 font-bold"
+        : "text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold";
 
       const btn = document.getElementById("botStateBtn");
       btn.innerText = botRunning ? "Pause Bot" : "Resume Bot";
@@ -1877,10 +1900,12 @@
         const res = await fetch("/api/wallet/info");
         if (res.ok) {
           const data = await res.json();
-          document.getElementById("walletModeLabel").innerText = data.mode === "live" ? "SOLANA MAINNET" : "PAPER SIMULATION";
-          document.getElementById("walletModeLabel").className = data.mode === "live" ? "font-semibold text-danger uppercase" : "font-semibold text-accent uppercase";
+          document.getElementById("walletModeLabel").innerText = "● SOLANA MAINNET (REAL MONEY)";
+          document.getElementById("walletModeLabel").className = "font-bold text-accent uppercase tracking-wide";
           document.getElementById("walletPubkey").innerText = data.public_key;
           document.getElementById("walletBalanceVal").innerText = `${data.balance_sol.toFixed(4)} SOL`;
+          const usdEl = document.getElementById("walletBalanceUsdVal");
+          if (usdEl) usdEl.innerText = `(~$${(data.balance_sol * 81.05).toFixed(2)} USD)`;
         }
       } catch (e) {
         console.error("Error fetching wallet info:", e);

@@ -443,6 +443,7 @@ async def manual_sell_position(position_id: str):
 
 
 @app.post("/api/positions/emergency-sell-all")
+@app.post("/api/trades/emergency-sell-all")
 async def emergency_sell_all():
     await engine.emergency_sell_all()
     return {"status": "success", "message": "Emergency sell triggered for all positions"}
