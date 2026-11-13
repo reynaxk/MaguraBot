@@ -1,8 +1,9 @@
+import asyncio
 import base64
 import json
 import logging
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import aiohttp
 import base58
 from solders.keypair import Keypair
@@ -12,16 +13,26 @@ from solders.message import to_bytes_versioned
 
 logger = logging.getLogger("MaguraBot.SolanaClient")
 
+DEFAULT_BACKUP_RPCS = [
+    "https://solana-mainnet.rpc.extrnode.com",
+    "https://rpc.ankr.com/solana",
+]
+
 
 class SolanaClient:
-    def __init__(self, rpc_url: str = "https://api.mainnet-beta.solana.com"):
+    def __init__(
+        self,
+        rpc_url: str = "https://api.mainnet-beta.solana.com",
+        backup_urls: Optional[List[str]] = None,
+    ):
         self.rpc_url = rpc_url
+        self.backup_urls = backup_urls if backup_urls is not None else list(DEFAULT_BACKUP_RPCS)
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=10)
+                timeout=aiohttp.ClientTimeout(total=8)
             )
         return self._session
 
@@ -30,7 +41,7 @@ class SolanaClient:
             await self._session.close()
 
     async def rpc_call(self, method: str, params: list) -> Dict[str, Any]:
-        """Send an asynchronous JSON-RPC call to the configured Solana node."""
+        """Send JSON-RPC call with automatic multi-node failover."""
         session = await self._get_session()
         payload = {
             "jsonrpc": "2.0",
@@ -38,20 +49,30 @@ class SolanaClient:
             "method": method,
             "params": params,
         }
-        try:
-            async with session.post(
-                self.rpc_url,
-                json=payload,
-                headers={"Content-Type": "application/json"}
-            ) as resp:
-                data = await resp.json()
-                if "error" in data:
-                    logger.error(f"RPC error on {method}: {data['error']}")
-                    return {"error": data["error"]}
-                return data.get("result", {})
-        except Exception as e:
-            logger.warning(f"RPC request failed ({method}): {e}")
-            return {"error": str(e)}
+        
+        endpoints = [self.rpc_url] + [u for u in self.backup_urls if u != self.rpc_url]
+        last_err = None
+
+        for url in endpoints:
+            try:
+                async with session.post(
+                    url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if "error" not in data:
+                            return data.get("result", {})
+                        last_err = data["error"]
+                    else:
+                        last_err = f"HTTP {resp.status}"
+            except Exception as e:
+                last_err = str(e)
+                continue
+
+        logger.debug(f"RPC call {method} failed across all nodes: {last_err}")
+        return {"error": last_err or "All endpoints failed"}
 
     async def get_balance(self, pubkey_str: str) -> float:
         """Return account balance in SOL."""
@@ -79,10 +100,13 @@ class SolanaClient:
         return None
 
     async def send_raw_transaction(self, raw_tx_b64: str, skip_preflight: bool = True) -> Optional[str]:
-        """Broadcast raw base64 transaction to Solana."""
-        res = await self.rpc_call(
-            "sendTransaction",
-            [
+        """Broadcast raw base64 transaction to Solana using multi-node TPU racing."""
+        session = await self._get_session()
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "sendTransaction",
+            "params": [
                 raw_tx_b64,
                 {
                     "encoding": "base64",
@@ -90,9 +114,32 @@ class SolanaClient:
                     "preflightCommitment": "processed",
                 },
             ],
-        )
-        if isinstance(res, str):
-            return res
+        }
+
+        endpoints = [self.rpc_url] + [u for u in self.backup_urls if u != self.rpc_url]
+
+        async def _broadcast_to(url: str) -> Optional[str]:
+            try:
+                async with session.post(
+                    url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        result = data.get("result")
+                        if isinstance(result, str):
+                            return result
+            except Exception:
+                pass
+            return None
+
+        # Race across all endpoints simultaneously for fastest block propagation
+        tasks = [asyncio.create_task(_broadcast_to(u)) for u in endpoints]
+        for completed in asyncio.as_completed(tasks):
+            sig = await completed
+            if sig:
+                return sig
         return None
 
     @staticmethod
