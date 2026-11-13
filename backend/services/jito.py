@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import random
 from typing import List, Optional, Dict, Any
@@ -43,8 +44,15 @@ class JitoService:
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
+            connector = aiohttp.TCPConnector(
+                limit=50,
+                keepalive_timeout=120,
+                ttl_dns_cache=600,
+                enable_cleanup_closed=True,
+            )
             self._session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=5),
+                connector=connector,
+                timeout=aiohttp.ClientTimeout(total=4),
                 headers={"User-Agent": "MaguraBot/1.0"}
             )
         return self._session
@@ -114,7 +122,7 @@ class JitoService:
 
     async def send_bundle(self, transactions_b64: List[str]) -> Optional[str]:
         """
-        Submit a transaction bundle directly to Jito Block Engine.
+        Submit a transaction bundle directly to Jito Block Engines with multi-region racing.
         Bypasses the public mempool to prevent frontrunning/sandwich attacks.
         """
         session = await self._get_session()
@@ -128,19 +136,32 @@ class JitoService:
             ]
         }
 
-        try:
-            async with session.post(
-                self.endpoint,
-                json=payload,
-                headers={"Content-Type": "application/json"}
-            ) as resp:
-                data = await resp.json()
-                if "error" in data:
-                    logger.warning(f"Jito bundle submission error: {data['error']}")
-                    return None
-                bundle_id = data.get("result")
-                logger.info(f"Jito bundle submitted successfully. Bundle ID: {bundle_id}")
-                return bundle_id
-        except Exception as e:
-            logger.warning(f"Failed to submit bundle to Jito: {e}")
+        # Race across all global Jito Block Engines concurrently
+        endpoints = [self.endpoint] + [ep for ep in JITO_ENDPOINTS if ep != self.endpoint]
+
+        async def _submit(ep: str) -> Optional[str]:
+            try:
+                async with session.post(
+                    ep,
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if "error" not in data:
+                            bundle_id = data.get("result")
+                            if bundle_id:
+                                return bundle_id
+            except Exception:
+                pass
             return None
+
+        tasks = [asyncio.create_task(_submit(ep)) for ep in endpoints[:4]]
+        for completed in asyncio.as_completed(tasks):
+            bundle_id = await completed
+            if bundle_id:
+                logger.info(f"⚡ Jito bundle landed on fastest Block Engine. Bundle ID: {bundle_id}")
+                return bundle_id
+
+        logger.warning("Failed to submit bundle across all Jito Block Engines")
+        return None

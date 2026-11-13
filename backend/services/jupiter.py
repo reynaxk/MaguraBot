@@ -19,7 +19,14 @@ class JupiterService:
             headers = {}
             if self.api_key:
                 headers["x-api-key"] = self.api_key
+            connector = aiohttp.TCPConnector(
+                limit=100,
+                keepalive_timeout=120,
+                ttl_dns_cache=600,
+                enable_cleanup_closed=True,
+            )
             self._session = aiohttp.ClientSession(
+                connector=connector,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=5)
             )

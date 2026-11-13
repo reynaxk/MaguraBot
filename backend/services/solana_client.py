@@ -31,7 +31,14 @@ class SolanaClient:
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
+            connector = aiohttp.TCPConnector(
+                limit=100,
+                keepalive_timeout=120,
+                ttl_dns_cache=600,
+                enable_cleanup_closed=True,
+            )
             self._session = aiohttp.ClientSession(
+                connector=connector,
                 timeout=aiohttp.ClientTimeout(total=8)
             )
         return self._session

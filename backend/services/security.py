@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional
 import aiohttp
@@ -36,55 +37,60 @@ class SecurityService:
         dev_holding_pct = 0.0
         top10_holding_pct = 0.0
 
-        # 1. Inspect on-chain token supply and authorities if solana_client is present
-        if self.solana_client:
+        async def _fetch_onchain():
+            if not self.solana_client:
+                return None
             try:
-                acc_info = await self.solana_client.rpc_call(
+                return await self.solana_client.rpc_call(
                     "getAccountInfo",
                     [mint, {"encoding": "jsonParsed", "commitment": "confirmed"}],
                 )
-                if isinstance(acc_info, dict) and "value" in acc_info:
-                    parsed = acc_info["value"].get("data", {}).get("parsed", {}).get("info", {})
-                    # Mint authority check
-                    if parsed.get("mintAuthority") is not None:
-                        mint_revoked = False
-                        score -= 30
-                        reasons.append("Mint authority is not revoked (can print unlimited tokens)")
-                    # Freeze authority check
-                    if parsed.get("freezeAuthority") is not None:
-                        freeze_revoked = False
-                        score -= 35
-                        reasons.append("Freeze authority is active (can freeze token transfers)")
             except Exception as e:
                 logger.debug(f"Direct on-chain check error: {e}")
+                return None
 
-        # 2. Check RugCheck API (free endpoint with fast fallback)
-        try:
-            session = await self._get_session()
-            url = f"https://api.rugcheck.xyz/v1/tokens/{mint}/report/summary"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    risks = data.get("risks", [])
-                    rug_score = data.get("score", 0)
-                    
-                    for r in risks:
-                        name = r.get("name", "")
-                        level = r.get("level", "")
-                        if level == "danger":
-                            score -= 25
-                            reasons.append(f"RugCheck Danger: {name}")
-                        elif level == "warn":
-                            score -= 10
-                            reasons.append(f"RugCheck Warning: {name}")
-                            
-                    # RugCheck score: lower is better (0-1000)
-                    if rug_score > 2000:
-                        score -= 30
-                        reasons.append("High overall risk rating on RugCheck")
-        except Exception:
-            # Fallback smoothly if external API is slow or rate limited
-            pass
+        async def _fetch_rugcheck():
+            try:
+                session = await self._get_session()
+                url = f"https://api.rugcheck.xyz/v1/tokens/{mint}/report/summary"
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+            except Exception:
+                pass
+            return None
+
+        # Execute both security queries concurrently in parallel
+        acc_info, rugcheck_data = await asyncio.gather(_fetch_onchain(), _fetch_rugcheck())
+
+        # 1. Parse on-chain account info
+        if isinstance(acc_info, dict) and "value" in acc_info and acc_info["value"]:
+            parsed = acc_info["value"].get("data", {}).get("parsed", {}).get("info", {})
+            if parsed.get("mintAuthority") is not None:
+                mint_revoked = False
+                score -= 30
+                reasons.append("Mint authority is not revoked (can print unlimited tokens)")
+            if parsed.get("freezeAuthority") is not None:
+                freeze_revoked = False
+                score -= 35
+                reasons.append("Freeze authority is active (can freeze token transfers)")
+
+        # 2. Parse RugCheck risk data
+        if isinstance(rugcheck_data, dict):
+            risks = rugcheck_data.get("risks", [])
+            rug_score = rugcheck_data.get("score", 0)
+            for r in risks:
+                name = r.get("name", "")
+                level = r.get("level", "")
+                if level == "danger":
+                    score -= 25
+                    reasons.append(f"RugCheck Danger: {name}")
+                elif level == "warn":
+                    score -= 10
+                    reasons.append(f"RugCheck Warning: {name}")
+            if rug_score > 2000:
+                score -= 30
+                reasons.append("High overall risk rating on RugCheck")
 
         # 3. Check metadata heuristics
         if raw_metadata:
