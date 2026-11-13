@@ -28,6 +28,8 @@ class SolanaClient:
         self.rpc_url = rpc_url
         self.backup_urls = backup_urls if backup_urls is not None else list(DEFAULT_BACKUP_RPCS)
         self._session: Optional[aiohttp.ClientSession] = None
+        self._cached_blockhash: Optional[str] = None
+        self._cached_blockhash_time: float = 0.0
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -100,11 +102,19 @@ class SolanaClient:
             return -1.0
 
     async def get_latest_blockhash(self) -> Optional[str]:
-        """Fetch latest blockhash for transaction construction."""
+        """Fetch latest blockhash for transaction construction with 0ms in-memory cache."""
+        now = time.time()
+        if self._cached_blockhash and (now - self._cached_blockhash_time < 2.0):
+            return self._cached_blockhash
+
         res = await self.rpc_call("getLatestBlockhash", [{"commitment": "confirmed"}])
         if isinstance(res, dict) and "value" in res:
-            return res["value"].get("blockhash")
-        return None
+            bh = res["value"].get("blockhash")
+            if bh:
+                self._cached_blockhash = bh
+                self._cached_blockhash_time = now
+                return bh
+        return self._cached_blockhash
 
     async def send_raw_transaction(self, raw_tx_b64: str, skip_preflight: bool = True) -> Optional[str]:
         """Broadcast raw base64 transaction to Solana using multi-node TPU racing."""
