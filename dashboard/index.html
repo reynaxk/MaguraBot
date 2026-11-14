@@ -181,14 +181,40 @@
 
         <!-- Radar Filter & Search Bar -->
         <div class="flex flex-col gap-2 pt-1">
-          <input id="radarSearchInput" oninput="applyRadarFilters()" type="text" placeholder="Search symbol or mint..." class="bg-panel border border-border1 rounded-lg px-2.5 py-1 text-xs font-mono text-white focus:outline-none focus:border-accent/40 placeholder-dim w-full" />
-          <div class="flex items-center gap-1.5 text-[10px] font-mono" id="radarFilterPills">
-            <button onclick="setRadarFilter('all')" class="px-2 py-0.5 rounded bg-panel2 text-accent font-semibold border border-accent/30" data-filter="all">All</button>
-            <button onclick="setRadarFilter('pumpfun')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="pumpfun">Pump.fun</button>
-            <button onclick="setRadarFilter('raydium')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="raydium">Raydium</button>
-            <button onclick="setRadarFilter('meteora')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="meteora">Meteora</button>
-            <button onclick="setRadarFilter('safe')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="safe">Safe (70+)</button>
-            <button onclick="setRadarFilter('unfreezable')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-filter="unfreezable">🔒 Non-Freezable</button>
+          <div class="relative">
+            <input id="radarSearchInput" oninput="applyRadarFilters()" type="text" placeholder="Search symbol, mint, or name..." class="bg-panel border border-border1 rounded-lg pl-7 pr-7 py-1 text-xs font-mono text-white focus:outline-none focus:border-accent/40 placeholder-dim w-full" />
+            <span class="absolute left-2.5 top-1.5 text-xs text-dim">🔍</span>
+            <button onclick="clearRadarSearch()" id="clearRadarSearchBtn" class="hidden absolute right-2.5 top-1.5 text-xs text-dim hover:text-white font-mono">✕</button>
+          </div>
+
+          <!-- Launchpad Source Selector -->
+          <div class="flex items-center justify-between text-[10px] font-mono">
+            <div class="flex items-center gap-1" id="radarSourcePills">
+              <button onclick="setRadarSource('all')" class="px-2 py-0.5 rounded bg-panel2 text-accent font-semibold border border-accent/30" data-source="all">All Sources</button>
+              <button onclick="setRadarSource('pumpfun')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-source="pumpfun">Pump.fun</button>
+              <button onclick="setRadarSource('raydium')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-source="raydium">Raydium</button>
+              <button onclick="setRadarSource('meteora')" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1" data-source="meteora">Meteora</button>
+            </div>
+            <button onclick="resetAllHandFilters()" id="resetFiltersBtn" class="text-dim hover:text-accent underline text-[10px] hidden">Reset All</button>
+          </div>
+
+          <!-- Hand-Trading Quick Filters Bar -->
+          <div class="flex items-center gap-1 flex-wrap text-[10px] font-mono pt-0.5" id="handFilterToggles">
+            <button onclick="toggleHandFilter('unfreezable')" id="filterBtn_unfreezable" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1 transition flex items-center gap-1" title="Show only tokens where Freeze Authority is revoked (Honeypot-Free)">
+              <span>🔒 Non-Freezable</span>
+            </button>
+            <button onclick="toggleHandFilter('mintRevoked')" id="filterBtn_mintRevoked" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1 transition flex items-center gap-1" title="Show only tokens with Mint Authority revoked (Cannot print supply)">
+              <span>🔥 Mint Revoked</span>
+            </button>
+            <button onclick="toggleHandFilter('socials')" id="filterBtn_socials" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1 transition flex items-center gap-1" title="Show only tokens with verified Twitter, Telegram or Website">
+              <span>🌐 Socials</span>
+            </button>
+            <button onclick="toggleHandFilter('whales')" id="filterBtn_whales" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1 transition flex items-center gap-1" title="Top 10 holders control less than 30% of supply">
+              <span>🐋 Top 10 &lt; 30%</span>
+            </button>
+            <button onclick="toggleHandFilter('safe75')" id="filterBtn_safe75" class="px-2 py-0.5 rounded text-dim hover:text-white border border-border1 transition flex items-center gap-1" title="Anti-Rug Safety Score 75+">
+              <span>🛡️ Safe 75+</span>
+            </button>
           </div>
         </div>
       </div>
@@ -449,11 +475,27 @@
               <label class="block text-dim mb-1">Max Top 10 Holders %</label>
               <input id="cfgMaxTop10Pct" type="number" min="5" max="90" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
             </div>
+            <div>
+              <label class="block text-dim mb-1">Min Liquidity ($ USD)</label>
+              <input id="cfgMinLiquidity" type="number" min="0" step="100" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Max Dev Allocation %</label>
+              <input id="cfgMaxDevBuy" type="number" min="1" max="50" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
           </div>
-          <div class="pt-2">
+          <div class="pt-2 space-y-1.5">
+            <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
+              <input id="cfgRequireFreezeRevoked" type="checkbox" checked class="accent-accent" />
+              <span class="text-white text-[11px]">🔒 Require Freeze Authority Revoked (100% Honeypot defense - Reject tokens where dev can freeze accounts)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
+              <input id="cfgRequireMintRevoked" type="checkbox" checked class="accent-accent" />
+              <span class="text-white text-[11px]">🔥 Require Mint Authority Revoked (Reject tokens where dev can print unlimited supply)</span>
+            </label>
             <label class="flex items-center gap-2 cursor-pointer bg-panel2 p-2 rounded-lg border border-border1">
               <input id="cfgRequireSocials" type="checkbox" checked class="accent-accent" />
-              <span class="text-white text-[11px]">🛡️ Require Verified Socials (Reject throwaway tokens without Twitter/Telegram/Website)</span>
+              <span class="text-white text-[11px]">🌐 Require Verified Socials (Reject throwaway tokens without Twitter/Telegram/Website)</span>
             </label>
           </div>
         </div>
@@ -1288,20 +1330,87 @@
       }
     }
 
-    // Radar Filter Logic
-    function setRadarFilter(f) {
-      radarFilter = f;
-      document.querySelectorAll("#radarFilterPills button").forEach(b => {
-        b.className = b.dataset.filter === f
+    // Hand-Trading Radar Multi-Filter State
+    let handFilters = {
+      source: 'all',          // 'all' | 'pumpfun' | 'raydium' | 'meteora'
+      unfreezable: false,      // only freeze authority revoked
+      mintRevoked: false,      // only mint authority revoked
+      socials: false,          // only tokens with verified socials
+      whales: false,           // top 10 holders < 30%
+      safe75: false,           // score >= 75
+    };
+
+    function setRadarSource(src) {
+      handFilters.source = src;
+      document.querySelectorAll("#radarSourcePills button").forEach(b => {
+        b.className = b.dataset.source === src
           ? "px-2 py-0.5 rounded bg-panel2 text-accent font-semibold border border-accent/30"
           : "px-2 py-0.5 rounded text-dim hover:text-white border border-border1";
       });
       applyRadarFilters();
     }
 
+    function toggleHandFilter(name) {
+      handFilters[name] = !handFilters[name];
+      updateFilterButtonUI(name);
+      applyRadarFilters();
+    }
+
+    function updateFilterButtonUI(name) {
+      const btn = document.getElementById(`filterBtn_${name}`);
+      if (!btn) return;
+      if (handFilters[name]) {
+        btn.className = "px-2 py-0.5 rounded bg-accent/20 text-accent font-bold border border-accent/50 shadow-[0_0_8px_rgba(47,227,154,0.25)] transition flex items-center gap-1";
+      } else {
+        btn.className = "px-2 py-0.5 rounded text-dim hover:text-white border border-border1 transition flex items-center gap-1";
+      }
+    }
+
+    function clearRadarSearch() {
+      const el = document.getElementById("radarSearchInput");
+      if (el) el.value = "";
+      applyRadarFilters();
+    }
+
+    function resetAllHandFilters() {
+      handFilters = {
+        source: 'all',
+        unfreezable: false,
+        mintRevoked: false,
+        socials: false,
+        whales: false,
+        safe75: false,
+      };
+      document.querySelectorAll("#radarSourcePills button").forEach(b => {
+        b.className = b.dataset.source === 'all'
+          ? "px-2 py-0.5 rounded bg-panel2 text-accent font-semibold border border-accent/30"
+          : "px-2 py-0.5 rounded text-dim hover:text-white border border-border1";
+      });
+      ['unfreezable', 'mintRevoked', 'socials', 'whales', 'safe75'].forEach(updateFilterButtonUI);
+      clearRadarSearch();
+    }
+
+    // Backward compatibility helper
+    function setRadarFilter(f) {
+      if (['all', 'pumpfun', 'raydium', 'meteora'].includes(f)) {
+        setRadarSource(f);
+      } else if (f === 'safe') {
+        toggleHandFilter('safe75');
+      } else if (f === 'unfreezable') {
+        toggleHandFilter('unfreezable');
+      }
+    }
+
     function applyRadarFilters() {
       const searchEl = document.getElementById("radarSearchInput");
       const query = (searchEl && searchEl.value ? searchEl.value : "").trim().toLowerCase();
+      const clearBtn = document.getElementById("clearRadarSearchBtn");
+      if (clearBtn) clearBtn.className = query ? "absolute right-2.5 top-1.5 text-xs text-dim hover:text-white font-mono" : "hidden";
+
+      const hasActive = handFilters.source !== 'all' || handFilters.unfreezable || handFilters.mintRevoked || handFilters.socials || handFilters.whales || handFilters.safe75 || Boolean(query);
+      const resetBtn = document.getElementById("resetFiltersBtn");
+      if (resetBtn) resetBtn.className = hasActive ? "text-dim hover:text-accent underline text-[10px]" : "hidden";
+
       const radar = document.getElementById("radarList");
       if (!radar) return;
       radar.innerHTML = "";
@@ -1316,16 +1425,21 @@
         if (query && !sym.includes(query) && !mint.includes(query) && !name.includes(query)) {
           return false;
         }
-        if (radarFilter === "pumpfun" && src !== "pumpfun") return false;
-        if (radarFilter === "raydium" && src !== "raydium") return false;
-        if (radarFilter === "meteora" && src !== "meteora") return false;
-        if (radarFilter === "safe" && (t.safety?.score || 0) < 70) return false;
-        if (radarFilter === "unfreezable" && t.safety && t.safety.freeze_authority_revoked === false) return false;
+        if (handFilters.source !== "all" && src !== handFilters.source) return false;
+        if (handFilters.unfreezable && t.safety && t.safety.freeze_authority_revoked === false) return false;
+        if (handFilters.mintRevoked && t.safety && t.safety.mint_authority_revoked === false) return false;
+        if (handFilters.safe75 && (t.safety?.score || 0) < 75) return false;
+        if (handFilters.socials) {
+          const raw = t.raw_metadata || {};
+          const hasSoc = Boolean(raw.twitter || raw.telegram || raw.website || (raw.links && raw.links.length > 0) || raw.info?.socials);
+          if (!hasSoc) return false;
+        }
+        if (handFilters.whales && t.safety && t.safety.top10_holding_pct && t.safety.top10_holding_pct > 30) return false;
         return true;
       });
 
       const countEl = document.getElementById("radarCount");
-      if (countEl) countEl.innerText = `${filtered.length} Discovered`;
+      if (countEl) countEl.innerText = `${filtered.length} / ${allRecentTokens.length} Discovered`;
 
       if (filtered.length === 0) {
         if (allRecentTokens.length === 0) {
@@ -1334,7 +1448,7 @@
             <span>Scanning Raydium, Meteora & Pump.fun memepools...</span>
           </div>`;
         } else {
-          radar.innerHTML = `<div class="text-center py-16 text-dim font-mono text-xs">No tokens match filter criteria (${radarFilter})</div>`;
+          radar.innerHTML = `<div class="text-center py-16 text-dim font-mono text-xs">No tokens match current filters. Click <button onclick="resetAllHandFilters()" class="text-accent underline font-semibold">Reset All</button> to view all tokens.</div>`;
         }
         return;
       }
@@ -1358,12 +1472,23 @@
       };
 
       const score = (token.safety && typeof token.safety.score === 'number') ? token.safety.score : 80;
-      const scoreColor = score >= 70 ? 'text-accent bg-accent/10 border-accent/30' : (score >= 40 ? 'text-warn bg-warn/10 border-warn/30' : 'text-danger bg-danger/10 border-danger/30');
+      const scoreColor = score >= 75 ? 'text-accent bg-accent/10 border-accent/30' : (score >= 50 ? 'text-warn bg-warn/10 border-warn/30' : 'text-danger bg-danger/10 border-danger/30');
 
       const freezeRevoked = token.safety ? token.safety.freeze_authority_revoked !== false : true;
       const freezeBadge = freezeRevoked
         ? `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-accent/15 border border-accent/40 text-accent font-semibold" title="Freeze Authority Revoked: Honeypot-Free">🔒 Non-Freezable</span>`
         : `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-danger/25 border border-danger/60 text-danger font-bold animate-pulse" title="WARNING: Freeze Authority Active! Creator can freeze transfers (Honeypot)">⚠️ FREEZABLE</span>`;
+
+      const mintRevoked = token.safety ? token.safety.mint_authority_revoked !== false : true;
+      const mintBadge = mintRevoked
+        ? `<span class="text-[9px] font-mono px-1 py-0.5 rounded bg-panel border border-border1 text-dim" title="Mint Authority Revoked (Fixed supply)">🔥 Mint Revoked</span>`
+        : `<span class="text-[9px] font-mono px-1 py-0.5 rounded bg-danger/15 border border-danger/30 text-danger" title="Mint Authority Active (Supply inflation risk)">⚠️ Mint Active</span>`;
+
+      const raw = token.raw_metadata || {};
+      const hasSocials = Boolean(raw.twitter || raw.telegram || raw.website || (raw.links && raw.links.length > 0) || raw.info?.socials);
+      const socialsBadge = hasSocials
+        ? `<span class="text-[9px] font-mono px-1 py-0.5 rounded bg-blueCol/15 border border-blueCol/30 text-blueCol font-medium" title="Verified Socials: Twitter / TG / Web">🌐 Socials</span>`
+        : ``;
 
       card.innerHTML = `
         <div class="flex items-center gap-3">
@@ -1376,8 +1501,10 @@
               <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${scoreColor}">${score}/100</span>
               <span class="text-[10px] text-accent/80 bg-accent/5 px-1 py-0.2 rounded font-mono">${source}</span>
               ${freezeBadge}
+              ${mintBadge}
+              ${socialsBadge}
             </div>
-            <div class="text-[11px] text-dim font-mono mt-0.5 truncate max-w-[150px]" title="${name}">
+            <div class="text-[11px] text-dim font-mono mt-0.5 truncate max-w-[160px]" title="${name}">
               ${name}
             </div>
           </div>
@@ -1771,6 +1898,10 @@
         document.getElementById("cfgMinSafety").value = cfg.min_safety_score || 75;
         document.getElementById("cfgMinHolders").value = cfg.min_holders !== undefined ? cfg.min_holders : 10;
         document.getElementById("cfgMaxTop10Pct").value = cfg.max_top10_holding_pct !== undefined ? cfg.max_top10_holding_pct : 30;
+        document.getElementById("cfgMinLiquidity").value = cfg.min_liquidity_usd || 1000;
+        document.getElementById("cfgMaxDevBuy").value = cfg.max_dev_buy_pct || 10;
+        document.getElementById("cfgRequireFreezeRevoked").checked = cfg.require_freeze_revoked !== false;
+        document.getElementById("cfgRequireMintRevoked").checked = cfg.require_mint_revoked !== false;
         document.getElementById("cfgRequireSocials").checked = cfg.require_socials !== false;
         document.getElementById("cfgTakeProfit").value = cfg.take_profit_pct || 50;
         document.getElementById("cfgStopLoss").value = cfg.stop_loss_pct || 20;
@@ -1828,6 +1959,10 @@
         min_safety_score: parseInt(document.getElementById("cfgMinSafety").value) || 75,
         min_holders: parseInt(document.getElementById("cfgMinHolders").value) || 10,
         max_top10_holding_pct: parseFloat(document.getElementById("cfgMaxTop10Pct").value) || 30.0,
+        min_liquidity_usd: parseFloat(document.getElementById("cfgMinLiquidity").value) || 1000.0,
+        max_dev_buy_pct: parseFloat(document.getElementById("cfgMaxDevBuy").value) || 10.0,
+        require_freeze_revoked: document.getElementById("cfgRequireFreezeRevoked").checked,
+        require_mint_revoked: document.getElementById("cfgRequireMintRevoked").checked,
         require_socials: document.getElementById("cfgRequireSocials").checked,
         take_profit_pct: parseFloat(document.getElementById("cfgTakeProfit").value) || 50,
         stop_loss_pct: parseFloat(document.getElementById("cfgStopLoss").value) || 20,

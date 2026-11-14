@@ -169,6 +169,10 @@ class ConfigUpdateRequest(BaseModel):
     discord_webhook_url: Optional[str] = None
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
+    require_mint_revoked: Optional[bool] = None
+    require_freeze_revoked: Optional[bool] = None
+    min_liquidity_usd: Optional[float] = None
+    max_dev_buy_pct: Optional[float] = None
     min_holders: Optional[int] = None
     max_top10_holding_pct: Optional[float] = None
     require_socials: Optional[bool] = None
@@ -195,6 +199,8 @@ async def update_config(req: ConfigUpdateRequest):
             engine.config.priority_fee_microlamports = 50000
     engine.executor.config = engine.config
     engine.tracker.config = engine.config
+    if hasattr(engine, "risk_agent") and engine.risk_agent:
+        engine.risk_agent.config = engine.config
     if "solana_rpc_url" in updates:
         engine.solana_client.rpc_url = updates["solana_rpc_url"]
     if "discord_webhook_url" in updates:
