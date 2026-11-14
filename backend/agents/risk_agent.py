@@ -77,7 +77,30 @@ class RiskAgent:
             if not has_socials:
                 return False, "Rejected: No verified socials (Twitter/Telegram/Website). High throwaway dump risk."
 
-        # 9. Check on-chain holder distribution
+        # 9. Check liquidity parameters if available
+        if token.liquidity_usd is not None:
+            min_liq = getattr(self.config, "min_liquidity_usd", 0.0)
+            if min_liq > 0 and token.liquidity_usd < min_liq:
+                return False, f"Rejected: Liquidity ${token.liquidity_usd:,.0f} below min ${min_liq:,.0f}"
+            max_liq = getattr(self.config, "max_liquidity_usd", None)
+            if max_liq and token.liquidity_usd > max_liq:
+                return False, f"Rejected: Liquidity ${token.liquidity_usd:,.0f} exceeds max limit ${max_liq:,.0f}"
+
+        # 10. Check volume parameters if available
+        min_vol = getattr(self.config, "min_volume_usd", None)
+        if min_vol and token.volume_24h_usd is not None:
+            if token.volume_24h_usd < min_vol:
+                return False, f"Rejected: 24h Volume ${token.volume_24h_usd:,.0f} below min ${min_vol:,.0f}"
+
+        # 11. Check token timeframe / age
+        max_age = getattr(self.config, "max_age_minutes", None)
+        if max_age and token.created_at:
+            import time
+            age_mins = (time.time() - token.created_at) / 60.0
+            if age_mins > max_age:
+                return False, f"Rejected: Token age {age_mins:.1f}m exceeds timeframe limit ({max_age}m)"
+
+        # 12. Check on-chain holder distribution
         if self.holders_scanner and getattr(self.config, "min_holders", 0) > 0:
             holders_info = await self.holders_scanner.analyze_holders(token.mint)
             if holders_info.get("status") == "success":

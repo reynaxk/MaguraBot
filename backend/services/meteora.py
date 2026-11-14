@@ -82,6 +82,17 @@ class MeteoraListener:
                                 except (ValueError, TypeError):
                                     pass
 
+                            vol_data = pair.get("volume") or {}
+                            volume_24h = None
+                            volume_1h = None
+                            try:
+                                if "h24" in vol_data and vol_data["h24"] is not None:
+                                    volume_24h = float(vol_data["h24"])
+                                if "h1" in vol_data and vol_data["h1"] is not None:
+                                    volume_1h = float(vol_data["h1"])
+                            except (ValueError, TypeError):
+                                pass
+
                             token = TokenData(
                                 mint=mint,
                                 symbol=symbol,
@@ -90,6 +101,8 @@ class MeteoraListener:
                                 price_sol=price_sol,
                                 price_usd=price_usd,
                                 liquidity_usd=liquidity_usd,
+                                volume_24h_usd=volume_24h,
+                                volume_1h_usd=volume_1h,
                                 bonding_curve_pct=100.0,
                                 is_migrated=True,
                                 raw_metadata=pair,

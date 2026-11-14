@@ -59,6 +59,9 @@ class BotConfig(BaseModel):
     
     # Anti-Rug Filters
     min_liquidity_usd: float = 1000.0
+    max_liquidity_usd: Optional[float] = None
+    min_volume_usd: Optional[float] = None
+    max_age_minutes: Optional[int] = None
     max_dev_buy_pct: float = 10.0
     require_mint_revoked: bool = True
     require_freeze_revoked: bool = True

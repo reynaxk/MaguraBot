@@ -216,6 +216,109 @@
               <span>🛡️ Safe 75+</span>
             </button>
           </div>
+
+          <!-- Custom Advanced Filters Bar & Sort Controls -->
+          <div class="flex items-center justify-between pt-1 border-t border-border1/60">
+            <button onclick="toggleAdvancedDrawer()" id="advFiltersToggleBtn" class="text-[10px] font-mono text-dim hover:text-accent flex items-center gap-1.5 transition">
+              <span id="advChevron" class="transition-transform">▶</span>
+              <span class="font-semibold">⚡ Timeframe, Vol, Liq & Fees</span>
+              <span id="advFilterCountBadge" class="hidden text-[9px] px-1.5 py-0.2 rounded-full bg-accent/20 text-accent font-bold">0</span>
+            </button>
+            <div class="flex items-center gap-1.5">
+              <label class="text-[10px] font-mono text-dim">Sort:</label>
+              <select id="radarSortSelect" onchange="changeRadarSort(this.value)" class="bg-panel2 border border-border1 text-white text-[10px] font-mono rounded px-1.5 py-0.5 focus:outline-none focus:border-accent">
+                <option value="newest">⏱️ Newest First</option>
+                <option value="liquidity">💧 Liquidity</option>
+                <option value="volume">📊 Volume</option>
+                <option value="safety">🛡️ Safety</option>
+                <option value="curve">📈 Curve %</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Expandable Drawer for Custom Filters & Fees -->
+          <div id="customFiltersDrawer" class="hidden bg-panel2/95 border border-border1 rounded-xl p-3 space-y-2.5 text-xs font-mono shadow-xl">
+            
+            <!-- 1. Timeframe Filter -->
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-white font-semibold flex items-center gap-1">⏱️ Timeframe (Token Age)</span>
+                <span class="text-dim text-[10px]" id="selectedTimeframeLabel">All time</span>
+              </div>
+              <div class="flex items-center gap-1 flex-wrap text-[10px]" id="timeframePills">
+                <button onclick="setTimeframeFilter('all')" class="px-2 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold" data-tf="all">All</button>
+                <button onclick="setTimeframeFilter(5)" class="px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-tf="5">&lt; 5m</button>
+                <button onclick="setTimeframeFilter(15)" class="px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-tf="15">&lt; 15m</button>
+                <button onclick="setTimeframeFilter(60)" class="px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-tf="60">&lt; 1h</button>
+                <button onclick="setTimeframeFilter(1440)" class="px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-tf="1440">&lt; 24h</button>
+                <input id="customMaxAgeInput" oninput="setCustomTimeframe(this.value)" type="number" placeholder="Mins..." class="w-16 bg-panel border border-border1 rounded px-1.5 py-0.5 text-white text-[10px] focus:outline-none focus:border-accent" />
+              </div>
+            </div>
+
+            <!-- 2. Liquidity & Volume Filters -->
+            <div class="grid grid-cols-2 gap-2 pt-1.5 border-t border-border1/60">
+              <div class="space-y-1">
+                <span class="text-white font-semibold text-[11px] flex items-center gap-1">💧 Min Liquidity ($)</span>
+                <div class="flex items-center gap-1 text-[10px]" id="liqPills">
+                  <button onclick="setMinLiquidityFilter(0)" class="px-1.5 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold" data-liq="0">Any</button>
+                  <button onclick="setMinLiquidityFilter(1000)" class="px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-liq="1000">$1k+</button>
+                  <button onclick="setMinLiquidityFilter(10000)" class="px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-liq="10000">$10k+</button>
+                  <button onclick="setMinLiquidityFilter(50000)" class="px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-liq="50000">$50k+</button>
+                </div>
+                <input id="customMinLiqInput" oninput="setCustomMinLiquidity(this.value)" type="number" placeholder="Custom Min $..." class="w-full bg-panel border border-border1 rounded px-2 py-1 text-white text-[10px] focus:outline-none focus:border-accent mt-0.5" />
+              </div>
+
+              <div class="space-y-1">
+                <span class="text-white font-semibold text-[11px] flex items-center gap-1">📊 Min Volume ($)</span>
+                <div class="flex items-center gap-1 text-[10px]" id="volPills">
+                  <button onclick="setMinVolumeFilter(0)" class="px-1.5 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold" data-vol="0">Any</button>
+                  <button onclick="setMinVolumeFilter(5000)" class="px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-vol="5000">$5k+</button>
+                  <button onclick="setMinVolumeFilter(25000)" class="px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-vol="25000">$25k+</button>
+                  <button onclick="setMinVolumeFilter(100000)" class="px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-vol="100000">$100k+</button>
+                </div>
+                <input id="customMinVolInput" oninput="setCustomMinVolume(this.value)" type="number" placeholder="Custom Min Vol $..." class="w-full bg-panel border border-border1 rounded px-2 py-1 text-white text-[10px] focus:outline-none focus:border-accent mt-0.5" />
+              </div>
+            </div>
+
+            <!-- 3. Solana Priority Fees & Jito MEV Quick Setting -->
+            <div class="pt-1.5 border-t border-border1/60 space-y-1.5">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-white font-semibold flex items-center gap-1">⚡ Solana Fees & Jito MEV</span>
+                <span class="text-accent text-[10px] font-semibold" id="quickFeeStatus">FAST (250k µL)</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-[10px]">
+                <div>
+                  <label class="text-dim block mb-0.5">Priority Fee</label>
+                  <select id="quickPriorityFeeSelect" onchange="quickUpdateFees()" class="w-full bg-panel border border-border1 text-white rounded px-2 py-1 focus:outline-none focus:border-accent">
+                    <option value="normal">Normal (50k µL)</option>
+                    <option value="fast" selected>Fast (250k µL)</option>
+                    <option value="turbo">Turbo (1,000k µL)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-dim block mb-0.5">Jito MEV Tip</label>
+                  <select id="quickJitoTipSelect" onchange="quickUpdateFees()" class="w-full bg-panel border border-border1 text-white rounded px-2 py-1 focus:outline-none focus:border-accent">
+                    <option value="0.001" selected>0.001 SOL Tip</option>
+                    <option value="0.003">0.003 SOL Tip</option>
+                    <option value="0.005">0.005 SOL Tip</option>
+                    <option value="0.01">0.010 SOL Tip (Whale / Sniper)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Curve Range Filter -->
+            <div class="pt-1.5 border-t border-border1/60 space-y-1">
+              <span class="text-white font-semibold text-[11px] flex items-center gap-1">📈 Pump.fun Bonding Curve %</span>
+              <div class="flex items-center gap-1 text-[10px]" id="curvePills">
+                <button onclick="setCurveFilter('all')" class="px-2 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold" data-curve="all">All</button>
+                <button onclick="setCurveFilter('early')" class="px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-curve="early">&lt; 30% Early</button>
+                <button onclick="setCurveFilter('mid')" class="px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-curve="mid">30-70% Mid</button>
+                <button onclick="setCurveFilter('migrating')" class="px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white" data-curve="migrating">&gt; 70% Near Raydium</button>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
 
@@ -474,10 +577,21 @@
             <div>
               <label class="block text-dim mb-1">Max Top 10 Holders %</label>
               <input id="cfgMaxTop10Pct" type="number" min="5" max="90" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
-            </div>
             <div>
               <label class="block text-dim mb-1">Min Liquidity ($ USD)</label>
               <input id="cfgMinLiquidity" type="number" min="0" step="100" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Max Liquidity ($ USD, optional)</label>
+              <input id="cfgMaxLiquidity" type="number" min="0" step="500" placeholder="Unlimited" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Min 24h Volume ($ USD, optional)</label>
+              <input id="cfgMinVolume" type="number" min="0" step="500" placeholder="Any" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="block text-dim mb-1">Max Token Age (Minutes, optional)</label>
+              <input id="cfgMaxAgeMinutes" type="number" min="1" placeholder="All time" class="w-full bg-panel2 border border-border1 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent" />
             </div>
             <div>
               <label class="block text-dim mb-1">Max Dev Allocation %</label>
@@ -1338,7 +1452,145 @@
       socials: false,          // only tokens with verified socials
       whales: false,           // top 10 holders < 30%
       safe75: false,           // score >= 75
+      maxAgeMinutes: null,     // null or minutes (5, 15, 60, 1440, etc.)
+      minLiquidityUsd: 0,      // min liquidity USD
+      minVolumeUsd: 0,         // min volume USD
+      curve: 'all',            // 'all' | 'early' (<30%) | 'mid' (30-70%) | 'migrating' (>70%)
+      sortBy: 'newest',        // 'newest' | 'liquidity' | 'volume' | 'safety' | 'curve'
     };
+
+    function toggleAdvancedDrawer() {
+      const drawer = document.getElementById("customFiltersDrawer");
+      const chevron = document.getElementById("advChevron");
+      if (!drawer) return;
+      const isHidden = drawer.classList.contains("hidden");
+      if (isHidden) {
+        drawer.classList.remove("hidden");
+        if (chevron) chevron.innerText = "▼";
+      } else {
+        drawer.classList.add("hidden");
+        if (chevron) chevron.innerText = "▶";
+      }
+    }
+
+    function setTimeframeFilter(mins) {
+      handFilters.maxAgeMinutes = mins === 'all' ? null : parseInt(mins);
+      const label = document.getElementById("selectedTimeframeLabel");
+      if (label) label.innerText = mins === 'all' ? 'All time' : `< ${mins < 60 ? mins + 'm' : (mins/60) + 'h'}`;
+      
+      const customInput = document.getElementById("customMaxAgeInput");
+      if (customInput && mins !== 'all') customInput.value = "";
+
+      document.querySelectorAll("#timeframePills button").forEach(b => {
+        const isMatch = (mins === 'all' && b.dataset.tf === 'all') || (String(mins) === b.dataset.tf);
+        b.className = isMatch
+          ? "px-2 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold"
+          : "px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white";
+      });
+      applyRadarFilters();
+    }
+
+    function setCustomTimeframe(val) {
+      const num = parseInt(val);
+      if (isNaN(num) || num <= 0) {
+        handFilters.maxAgeMinutes = null;
+      } else {
+        handFilters.maxAgeMinutes = num;
+        const label = document.getElementById("selectedTimeframeLabel");
+        if (label) label.innerText = `< ${num}m`;
+        document.querySelectorAll("#timeframePills button").forEach(b => {
+          b.className = "px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white";
+        });
+      }
+      applyRadarFilters();
+    }
+
+    function setMinLiquidityFilter(amt) {
+      handFilters.minLiquidityUsd = parseFloat(amt) || 0;
+      const customInput = document.getElementById("customMinLiqInput");
+      if (customInput) customInput.value = amt === 0 ? "" : amt;
+      document.querySelectorAll("#liqPills button").forEach(b => {
+        b.className = (parseFloat(b.dataset.liq) === handFilters.minLiquidityUsd)
+          ? "px-1.5 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold"
+          : "px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white";
+      });
+      applyRadarFilters();
+    }
+
+    function setCustomMinLiquidity(val) {
+      const num = parseFloat(val) || 0;
+      handFilters.minLiquidityUsd = num;
+      document.querySelectorAll("#liqPills button").forEach(b => {
+        b.className = (parseFloat(b.dataset.liq) === num)
+          ? "px-1.5 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold"
+          : "px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white";
+      });
+      applyRadarFilters();
+    }
+
+    function setMinVolumeFilter(amt) {
+      handFilters.minVolumeUsd = parseFloat(amt) || 0;
+      const customInput = document.getElementById("customMinVolInput");
+      if (customInput) customInput.value = amt === 0 ? "" : amt;
+      document.querySelectorAll("#volPills button").forEach(b => {
+        b.className = (parseFloat(b.dataset.vol) === handFilters.minVolumeUsd)
+          ? "px-1.5 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold"
+          : "px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white";
+      });
+      applyRadarFilters();
+    }
+
+    function setCustomMinVolume(val) {
+      const num = parseFloat(val) || 0;
+      handFilters.minVolumeUsd = num;
+      document.querySelectorAll("#volPills button").forEach(b => {
+        b.className = (parseFloat(b.dataset.vol) === num)
+          ? "px-1.5 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold"
+          : "px-1.5 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white";
+      });
+      applyRadarFilters();
+    }
+
+    function setCurveFilter(c) {
+      handFilters.curve = c;
+      document.querySelectorAll("#curvePills button").forEach(b => {
+        b.className = (b.dataset.curve === c)
+          ? "px-2 py-0.5 rounded bg-panel border border-accent/40 text-accent font-semibold"
+          : "px-2 py-0.5 rounded bg-panel border border-border1 text-dim hover:text-white";
+      });
+      applyRadarFilters();
+    }
+
+    function changeRadarSort(sortBy) {
+      handFilters.sortBy = sortBy;
+      applyRadarFilters();
+    }
+
+    async function quickUpdateFees() {
+      const pLevel = document.getElementById("quickPriorityFeeSelect").value;
+      const jTip = parseFloat(document.getElementById("quickJitoTipSelect").value) || 0.001;
+      
+      const payload = {
+        priority_fee_level: pLevel,
+        jito_tip_sol: jTip,
+        use_jito: true
+      };
+
+      try {
+        const res = await fetch("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const badge = document.getElementById("quickFeeStatus");
+          if (badge) badge.innerText = `${pLevel.toUpperCase()} • ${jTip} SOL Tip`;
+          addLog(`Solana Fees updated: Priority ${pLevel.toUpperCase()} | Jito Tip ${jTip} SOL`, "accent");
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
 
     function setRadarSource(src) {
       handFilters.source = src;
@@ -1380,6 +1632,11 @@
         socials: false,
         whales: false,
         safe75: false,
+        maxAgeMinutes: null,
+        minLiquidityUsd: 0,
+        minVolumeUsd: 0,
+        curve: 'all',
+        sortBy: 'newest',
       };
       document.querySelectorAll("#radarSourcePills button").forEach(b => {
         b.className = b.dataset.source === 'all'
@@ -1387,6 +1644,12 @@
           : "px-2 py-0.5 rounded text-dim hover:text-white border border-border1";
       });
       ['unfreezable', 'mintRevoked', 'socials', 'whales', 'safe75'].forEach(updateFilterButtonUI);
+      setTimeframeFilter('all');
+      setMinLiquidityFilter(0);
+      setMinVolumeFilter(0);
+      setCurveFilter('all');
+      const sortSel = document.getElementById("radarSortSelect");
+      if (sortSel) sortSel.value = "newest";
       clearRadarSearch();
     }
 
@@ -1407,13 +1670,33 @@
       const clearBtn = document.getElementById("clearRadarSearchBtn");
       if (clearBtn) clearBtn.className = query ? "absolute right-2.5 top-1.5 text-xs text-dim hover:text-white font-mono" : "hidden";
 
-      const hasActive = handFilters.source !== 'all' || handFilters.unfreezable || handFilters.mintRevoked || handFilters.socials || handFilters.whales || handFilters.safe75 || Boolean(query);
+      // Count active advanced custom filters
+      let advActiveCount = 0;
+      if (handFilters.maxAgeMinutes !== null) advActiveCount++;
+      if (handFilters.minLiquidityUsd > 0) advActiveCount++;
+      if (handFilters.minVolumeUsd > 0) advActiveCount++;
+      if (handFilters.curve !== 'all') advActiveCount++;
+      if (handFilters.sortBy !== 'newest') advActiveCount++;
+
+      const advBadge = document.getElementById("advFilterCountBadge");
+      if (advBadge) {
+        if (advActiveCount > 0) {
+          advBadge.innerText = `${advActiveCount} active`;
+          advBadge.classList.remove("hidden");
+        } else {
+          advBadge.classList.add("hidden");
+        }
+      }
+
+      const hasActive = handFilters.source !== 'all' || handFilters.unfreezable || handFilters.mintRevoked || handFilters.socials || handFilters.whales || handFilters.safe75 || advActiveCount > 0 || Boolean(query);
       const resetBtn = document.getElementById("resetFiltersBtn");
       if (resetBtn) resetBtn.className = hasActive ? "text-dim hover:text-accent underline text-[10px]" : "hidden";
 
       const radar = document.getElementById("radarList");
       if (!radar) return;
       radar.innerHTML = "";
+
+      const now = Date.now() / 1000;
 
       const filtered = allRecentTokens.filter(t => {
         if (!t) return false;
@@ -1435,7 +1718,56 @@
           if (!hasSoc) return false;
         }
         if (handFilters.whales && t.safety && t.safety.top10_holding_pct && t.safety.top10_holding_pct > 30) return false;
+
+        // Custom Timeframe filter
+        if (handFilters.maxAgeMinutes !== null && t.created_at) {
+          const ageMins = (now - t.created_at) / 60;
+          if (ageMins > handFilters.maxAgeMinutes) return false;
+        }
+
+        // Custom Liquidity filter
+        if (handFilters.minLiquidityUsd > 0) {
+          const liq = t.liquidity_usd || (t.v_sol_in_bonding_curve ? t.v_sol_in_bonding_curve * 81.05 : 0);
+          if (liq < handFilters.minLiquidityUsd) return false;
+        }
+
+        // Custom Volume filter
+        if (handFilters.minVolumeUsd > 0) {
+          const vol = t.volume_24h_usd || t.volume_1h_usd || 0;
+          if (vol < handFilters.minVolumeUsd) return false;
+        }
+
+        // Curve filter
+        if (handFilters.curve !== 'all') {
+          const c = t.bonding_curve_pct || 0;
+          if (handFilters.curve === 'early' && c >= 30) return false;
+          if (handFilters.curve === 'mid' && (c < 30 || c > 70)) return false;
+          if (handFilters.curve === 'migrating' && c < 70) return false;
+        }
+
         return true;
+      });
+
+      // Sort results
+      filtered.sort((a, b) => {
+        if (handFilters.sortBy === 'liquidity') {
+          const liqA = a.liquidity_usd || (a.v_sol_in_bonding_curve ? a.v_sol_in_bonding_curve * 81.05 : 0);
+          const liqB = b.liquidity_usd || (b.v_sol_in_bonding_curve ? b.v_sol_in_bonding_curve * 81.05 : 0);
+          return liqB - liqA;
+        }
+        if (handFilters.sortBy === 'volume') {
+          const volA = a.volume_24h_usd || a.volume_1h_usd || 0;
+          const volB = b.volume_24h_usd || b.volume_1h_usd || 0;
+          return volB - volA;
+        }
+        if (handFilters.sortBy === 'safety') {
+          return (b.safety?.score || 0) - (a.safety?.score || 0);
+        }
+        if (handFilters.sortBy === 'curve') {
+          return (b.bonding_curve_pct || 0) - (a.bonding_curve_pct || 0);
+        }
+        // Default newest first
+        return (b.created_at || 0) - (a.created_at || 0);
       });
 
       const countEl = document.getElementById("radarCount");
@@ -1490,6 +1822,17 @@
         ? `<span class="text-[9px] font-mono px-1 py-0.5 rounded bg-blueCol/15 border border-blueCol/30 text-blueCol font-medium" title="Verified Socials: Twitter / TG / Web">🌐 Socials</span>`
         : ``;
 
+      // Calculate age/timeframe
+      const ageMins = token.created_at ? Math.max(0, Math.floor((Date.now()/1000 - token.created_at)/60)) : 0;
+      const ageStr = ageMins < 60 ? `${ageMins}m ago` : `${Math.floor(ageMins/60)}h ago`;
+
+      // Liquidity & Volume formatting
+      const liqVal = token.liquidity_usd || (token.v_sol_in_bonding_curve ? token.v_sol_in_bonding_curve * 81.05 : null);
+      const liqStr = liqVal ? `$${liqVal >= 1000 ? (liqVal/1000).toFixed(1) + 'k' : liqVal.toFixed(0)}` : null;
+
+      const volVal = token.volume_24h_usd || token.volume_1h_usd;
+      const volStr = volVal ? `$${volVal >= 1000 ? (volVal/1000).toFixed(1) + 'k' : volVal.toFixed(0)}` : null;
+
       card.innerHTML = `
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg bg-panel border border-border2 flex items-center justify-center font-bold text-xs uppercase font-mono text-white group-hover:text-accent group-hover:border-accent/40 transition">
@@ -1504,8 +1847,11 @@
               ${mintBadge}
               ${socialsBadge}
             </div>
-            <div class="text-[11px] text-dim font-mono mt-0.5 truncate max-w-[160px]" title="${name}">
-              ${name}
+            <div class="flex items-center gap-2 text-[10px] text-dim font-mono mt-0.5">
+              <span title="Age">${ageStr}</span>
+              ${liqStr ? `<span class="text-emerald-400/90" title="Liquidity">💧 ${liqStr}</span>` : ''}
+              ${volStr ? `<span class="text-sky-400/90" title="24h Volume">📊 ${volStr}</span>` : ''}
+              <span class="truncate max-w-[110px]" title="${name}">${name}</span>
             </div>
           </div>
         </div>
@@ -1899,6 +2245,9 @@
         document.getElementById("cfgMinHolders").value = cfg.min_holders !== undefined ? cfg.min_holders : 10;
         document.getElementById("cfgMaxTop10Pct").value = cfg.max_top10_holding_pct !== undefined ? cfg.max_top10_holding_pct : 30;
         document.getElementById("cfgMinLiquidity").value = cfg.min_liquidity_usd || 1000;
+        document.getElementById("cfgMaxLiquidity").value = cfg.max_liquidity_usd || "";
+        document.getElementById("cfgMinVolume").value = cfg.min_volume_usd || "";
+        document.getElementById("cfgMaxAgeMinutes").value = cfg.max_age_minutes || "";
         document.getElementById("cfgMaxDevBuy").value = cfg.max_dev_buy_pct || 10;
         document.getElementById("cfgRequireFreezeRevoked").checked = cfg.require_freeze_revoked !== false;
         document.getElementById("cfgRequireMintRevoked").checked = cfg.require_mint_revoked !== false;
@@ -1952,6 +2301,10 @@
       const kwList = kwRaw.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
       const crList = crRaw.split(",").map(s => s.trim()).filter(Boolean);
 
+      const maxLiqVal = parseFloat(document.getElementById("cfgMaxLiquidity").value);
+      const minVolVal = parseFloat(document.getElementById("cfgMinVolume").value);
+      const maxAgeVal = parseInt(document.getElementById("cfgMaxAgeMinutes").value);
+
       const payload = {
         buy_amount_sol: parseFloat(document.getElementById("cfgBuyAmount").value) || 0.05,
         max_positions: parseInt(document.getElementById("cfgMaxPositions").value) || 10,
@@ -1960,6 +2313,9 @@
         min_holders: parseInt(document.getElementById("cfgMinHolders").value) || 10,
         max_top10_holding_pct: parseFloat(document.getElementById("cfgMaxTop10Pct").value) || 30.0,
         min_liquidity_usd: parseFloat(document.getElementById("cfgMinLiquidity").value) || 1000.0,
+        max_liquidity_usd: isNaN(maxLiqVal) ? null : maxLiqVal,
+        min_volume_usd: isNaN(minVolVal) ? null : minVolVal,
+        max_age_minutes: isNaN(maxAgeVal) ? null : maxAgeVal,
         max_dev_buy_pct: parseFloat(document.getElementById("cfgMaxDevBuy").value) || 10.0,
         require_freeze_revoked: document.getElementById("cfgRequireFreezeRevoked").checked,
         require_mint_revoked: document.getElementById("cfgRequireMintRevoked").checked,

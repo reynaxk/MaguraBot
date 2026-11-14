@@ -35,6 +35,8 @@ class TokenData(BaseModel):
     market_cap_sol: Optional[float] = None
     market_cap_usd: Optional[float] = None
     liquidity_usd: Optional[float] = None
+    volume_24h_usd: Optional[float] = None
+    volume_1h_usd: Optional[float] = None
     
     # Bonding curve metrics (Pump.fun)
     v_sol_in_bonding_curve: Optional[float] = None

@@ -172,6 +172,9 @@ class ConfigUpdateRequest(BaseModel):
     require_mint_revoked: Optional[bool] = None
     require_freeze_revoked: Optional[bool] = None
     min_liquidity_usd: Optional[float] = None
+    max_liquidity_usd: Optional[float] = None
+    min_volume_usd: Optional[float] = None
+    max_age_minutes: Optional[int] = None
     max_dev_buy_pct: Optional[float] = None
     min_holders: Optional[int] = None
     max_top10_holding_pct: Optional[float] = None
